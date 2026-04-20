@@ -4,6 +4,12 @@ import Clients from './pages/Clients';
 import Tasks from './pages/Tasks';
 import Communication from './pages/Communication';
 import Billing from './pages/Billing';
+import Compliance from './pages/Compliance';
+import CalendarView from './pages/CalendarView';
+import MailBox from './pages/MailBox';
+import Documents from './pages/Documents';
+import DSCManager from './pages/DSCManager';
+import ClientPortal from './pages/ClientPortal';
 import { 
   Bell, 
   Search, 
@@ -13,7 +19,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   CreditCard,
-  Settings
+  Settings,
+  X
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -26,6 +33,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Mock Data
 const dashboardStats = [
@@ -46,76 +54,112 @@ const chartData = [
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [complianceSummary, setComplianceSummary] = useState({ filed: 12, pending: 8, overdue: 4 });
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  React.useEffect(() => {
+    // Fetch Compliance
+    fetch('http://127.0.0.1:5000/api/compliance')
+      .then(res => res.json())
+      .then(data => {
+        const filed = data.filter((r: any) => r.status === 'Filed').length;
+        const pending = data.filter((r: any) => r.status === 'Pending').length;
+        const overdue = data.filter((r: any) => r.status === 'Overdue').length;
+        setComplianceSummary({ filed, pending, overdue });
+      });
+
+    // Fetch Notifications
+    fetch('http://127.0.0.1:5000/api/notifications')
+      .then(res => res.json())
+      .then(data => setNotifications(data.length > 0 ? data : [
+        { id: 1, title: 'Overdue Task Escalated', message: 'GST filing for Turia Ind. is 2 days overdue.', type: 'Overdue', timestamp: '09:30', is_read: false },
+        { id: 2, title: 'Notice Hearing Nudge', message: 'ITD Hearing starts in 2 hours.', type: 'Reminder', timestamp: '10:15', is_read: false }
+      ]));
+  }, []);
 
   return (
     <div className="app-container" style={{ display: 'flex', minHeight: '100vh', padding: '20px' }}>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main style={{ 
-        marginLeft: 'calc(var(--sidebar-width) + 20px)', 
+        marginLeft: 'calc(var(--sidebar-width) + 40px)', 
         flex: 1,
-        padding: '0 20px'
+        padding: '20px 40px'
       }}>
         {/* Header */}
-        <header className="glass-panel" style={{
+        <header className="card" style={{
           height: 'var(--header-height)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 32px',
           marginBottom: '32px',
-          borderRadius: '20px'
+          borderRadius: '20px',
+          background: 'var(--surface)'
         }}>
-          <div className="search-bar" style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            padding: '10px 20px',
-            borderRadius: '12px',
-            width: '400px',
-            border: '1px solid var(--glass-border)'
-          }}>
-            <Search size={18} color="var(--text-secondary)" />
-            <input 
-              type="text" 
-              placeholder="Search clients, tasks, or documents..." 
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'white',
-                outline: 'none',
-                width: '100%',
-                fontSize: '14px'
-              }}
-            />
-          </div>
+          <div style={{ visibility: 'hidden' }}></div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <button className="glass-card" style={{ padding: '10px', borderRadius: '12px' }}>
-              <Bell size={20} />
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button 
+                onClick={() => { setShowNotifications(!showNotifications); }}
+                style={{ background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '10px', borderRadius: '12px', position: 'relative' }}
+              >
+                <Bell size={20} />
+                {notifications.some(n => !n.is_read) && (
+                  <div style={{ position: 'absolute', top: '8px', right: '8px', width: '8px', height: '8px', background: 'var(--danger)', borderRadius: '50%', border: '2px solid white' }} />
+                )}
+              </button>
+              
+              <AnimatePresence>
+                {showNotifications && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                    className="card" 
+                    style={{ position: 'absolute', top: '100%', right: 0, width: '380px', marginTop: '12px', zIndex: 1000, padding: '24px' }}
+                  >
+                    <h4 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: '700' }}>Practice Alerts</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {notifications.map(n => (
+                        <div key={n.id} style={{ display: 'flex', gap: '12px', padding: '14px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                          <div style={{ width: '8px', height: '8px', marginTop: '6px', borderRadius: '50%', background: n.type === 'Overdue' ? 'var(--danger)' : 'var(--warning)' }} />
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '13px', fontWeight: '700' }}>{n.title}</p>
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{n.message}</p>
+                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '8px', display: 'block' }}>{n.timestamp}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: '12px',
               padding: '6px 12px',
-              background: 'rgba(255, 255, 255, 0.05)',
+              background: 'var(--background)',
               borderRadius: '14px',
-              border: '1px solid var(--glass-border)'
+              border: '1px solid var(--border)'
             }}>
               <div style={{
                 width: '32px',
                 height: '32px',
                 borderRadius: '8px',
-                background: 'linear-gradient(135deg, var(--secondary), var(--accent))',
+                background: 'var(--primary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: '600'
+                fontWeight: '700',
+                color: 'white',
+                fontSize: '14px'
               }}>V</div>
               <div style={{ textAlign: 'left' }}>
-                <p style={{ fontSize: '13px', fontWeight: '600' }}>Vidyasagar Dhage</p>
+                <p style={{ fontSize: '13px', fontWeight: '700' }}>Vidyasagar Dhage</p>
                 <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Senior Partner</p>
               </div>
             </div>
@@ -126,47 +170,47 @@ function App() {
         <div className="animate-fade-in" style={{ paddingBottom: '40px' }}>
           {activeTab === 'dashboard' && (
             <>
-              <div style={{ marginBottom: '32px' }}>
-                <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>Firm Overview</h1>
-                <p style={{ color: 'var(--text-secondary)' }}>Welcome back! Here's what's happening in your practice today.</p>
+              <div style={{ marginBottom: '40px' }}>
+                <h1 style={{ marginBottom: '12px' }}>Firm Overview</h1>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Welcome back! Track your practice success and statutory deadlines.</p>
               </div>
 
               {/* Stats Grid */}
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
                 gap: '24px',
-                marginBottom: '32px' 
+                marginBottom: '40px' 
               }}>
                 {dashboardStats.map((stat, i) => (
-                  <div key={i} className="glass-panel" style={{ padding: '24px', borderRadius: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <div key={i} className="card" style={{ padding: '28px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
                       <div style={{ 
-                        width: '48px', 
-                        height: '48px', 
+                        width: '52px', 
+                        height: '52px', 
                         borderRadius: '16px', 
-                        background: `rgba(${stat.color === 'var(--primary)' ? '99, 102, 241' : stat.color === 'var(--warning)' ? '245, 158, 11' : stat.color === 'var(--success)' ? '16, 185, 129' : '239, 68, 68'}, 0.15)`,
+                        background: `rgba(${stat.color === 'var(--primary)' ? '37, 99, 235' : stat.color === 'var(--warning)' ? '245, 158, 11' : stat.color === 'var(--success)' ? '34, 197, 94' : '239, 68, 68'}, 0.1)`,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}>
-                        <stat.icon size={24} color={stat.color} />
+                        <stat.icon size={26} color={stat.color} />
                       </div>
                       <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: '4px',
+                        gap: '6px',
                         color: stat.change.startsWith('+') ? 'var(--success)' : 'var(--danger)',
                         fontSize: '14px',
-                        fontWeight: '600'
+                        fontWeight: '700'
                       }}>
-                        <TrendingUp size={16} />
+                        <TrendingUp size={18} />
                         {stat.change}
                       </div>
                     </div>
                     <div>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>{stat.label}</p>
-                      <h2 style={{ fontSize: '28px' }}>{stat.value}</h2>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', marginBottom: '6px' }}>{stat.label}</p>
+                      <h2 style={{ fontSize: '32px', fontWeight: '800' }}>{stat.value}</h2>
                     </div>
                   </div>
                 ))}
@@ -174,54 +218,56 @@ function App() {
 
               {/* Charts Section */}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-                <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px' }}>
+                <div className="card" style={{ padding: '32px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px' }}>
-                    <h3 style={{ fontSize: '20px' }}>Task Distribution & Efficiency</h3>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}>Weekly</button>
-                      <button style={{ padding: '6px 12px', background: 'var(--primary)', borderRadius: '8px', fontSize: '12px' }}>Monthly</button>
+                    <h3 style={{ fontSize: '20px', fontWeight: '700' }}>Growth & Performance</h3>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button style={{ padding: '8px 16px', background: 'var(--background)', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '12px' }}>Weekly</button>
+                      <button style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', borderRadius: '10px', fontSize: '12px' }}>Monthly</button>
                     </div>
                   </div>
-                  <div style={{ height: '300px', width: '100%' }}>
+                  <div style={{ height: '320px', width: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={chartData}>
                         <defs>
                           <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.1}/>
                             <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
                           </linearGradient>
                         </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--text-secondary)', fontSize: 12}} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: 'var(--text-secondary)', fontSize: 12}} />
                         <Tooltip 
-                          contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                          itemStyle={{ color: 'white' }}
+                          contentStyle={{ background: 'white', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                         />
-                        <Area type="monotone" dataKey="revenue" stroke="var(--primary)" fillOpacity={1} fill="url(#colorRevenue)" />
+                        <Area type="monotone" dataKey="revenue" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
 
-                <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px' }}>
-                  <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>Upcoming Deadlines</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {[
-                      { title: 'GST Filing - Q3', date: '25th Apr', client: 'Reliance Ind.', status: 'Priority' },
-                      { title: 'TDS Payment', date: '7th May', client: 'Various', status: 'Regular' },
-                      { title: 'ITR Audit', date: '15th May', client: 'HDFC Bank', status: 'Priority' }
-                    ].map((item, i) => (
-                      <div key={i} style={{ 
-                        padding: '16px', 
-                        background: 'rgba(255,255,255,0.03)', 
-                        borderRadius: '16px',
-                        borderLeft: `4px solid ${item.status === 'Priority' ? 'var(--danger)' : 'var(--primary)'}`
-                      }}>
-                        <p style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>{item.title}</p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.client}</span>
-                          <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--primary)' }}>{item.date}</span>
-                        </div>
-                      </div>
-                    ))}
+                <div className="card" style={{ padding: '32px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '24px' }}>Compliance Health</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(34, 197, 94, 0.05)', borderRadius: '14px', border: '1px solid rgba(34, 197, 94, 0.1)' }}>
+                      <span style={{ fontSize: '14px', color: 'var(--success)', fontWeight: '700' }}>✓ Filed on Time</span>
+                      <span style={{ fontWeight: '800' }}>{complianceSummary.filed}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(245, 158, 11, 0.05)', borderRadius: '14px', border: '1px solid rgba(245, 158, 11, 0.1)' }}>
+                      <span style={{ fontSize: '14px', color: 'var(--warning)', fontWeight: '700' }}>⏳ Pending Filing</span>
+                      <span style={{ fontWeight: '800' }}>{complianceSummary.pending}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '14px', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
+                      <span style={{ fontSize: '14px', color: 'var(--danger)', fontWeight: '700' }}>⚠ Overdue Status</span>
+                      <span style={{ fontWeight: '800' }}>{complianceSummary.overdue}</span>
+                    </div>
+                    <button 
+                      onClick={() => setActiveTab('compliance')}
+                      style={{ marginTop: '12px', padding: '14px', background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '12px', fontWeight: '700', fontSize: '13px' }}
+                    >
+                      View Full Ecosystem
+                    </button>
                   </div>
                 </div>
               </div>
@@ -231,14 +277,20 @@ function App() {
           {activeTab === 'clients' && <Clients />}
           {activeTab === 'tasks' && <Tasks />}
           {activeTab === 'billing' && <Billing />}
-          {(activeTab === 'whatsapp' || activeTab === 'inbox') && <Communication />}
+          {activeTab === 'compliance' && <Compliance />}
+          {activeTab === 'calendar' && <CalendarView />}
+          {activeTab === 'inbox' && <MailBox />}
+          {activeTab === 'whatsapp' && <Communication />}
+          {activeTab === 'documents' && <Documents />}
+          {activeTab === 'dsc' && <DSCManager />}
+          {activeTab === 'portal' && <ClientPortal />}
 
-          {['compliance', 'calendar', 'documents'].includes(activeTab) && (
-            <div style={{ textAlign: 'center', padding: '100px 0' }}>
+          {[''].includes(activeTab) && (
+            <div className="card" style={{ textAlign: 'center', padding: '120px 0', borderStyle: 'dashed' }}>
               <div style={{ 
                 width: '120px', 
                 height: '120px', 
-                background: 'rgba(255,255,255,0.03)', 
+                background: 'var(--background)', 
                 borderRadius: '50%', 
                 display: 'flex', 
                 alignItems: 'center', 
