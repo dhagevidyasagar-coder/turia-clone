@@ -1,0 +1,10 @@
+node_modules/
+.npm_cache/
+.vite/
+dist/
+*.local
+.env
+turia_practice.db
+venv/
+__pycache__/
+*.pyc
