@@ -1,26 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Clients from './pages/Clients';
 import Tasks from './pages/Tasks';
 import Communication from './pages/Communication';
 import Billing from './pages/Billing';
-import Compliance from './pages/Compliance';
+import ComplianceCalendar from './pages/ComplianceCalendar';
 import CalendarView from './pages/CalendarView';
 import MailBox from './pages/MailBox';
 import Documents from './pages/Documents';
 import DSCManager from './pages/DSCManager';
 import ClientPortal from './pages/ClientPortal';
+import Leads from './pages/Leads';
+import Notices from './pages/Notices';
+import Team from './pages/Team';
+import LoginPage from './pages/LoginPage';
 import { 
   Bell, 
-  Search, 
   User, 
-  TrendingUp, 
   Clock, 
   CheckCircle2, 
   AlertCircle,
-  CreditCard,
   Settings,
-  X
+  Building2,
+  TrendingUp,
+  DollarSign,
+  Briefcase
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -35,99 +39,187 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Mock Data
-const dashboardStats = [
-  { label: 'Total Clients', value: '1,280', change: '+12%', icon: User, color: 'var(--primary)' },
-  { label: 'Active Tasks', value: '452', change: '+5%', icon: Clock, color: 'var(--warning)' },
-  { label: 'Completed (MTD)', value: '89', change: '+18%', icon: CheckCircle2, color: 'var(--success)' },
-  { label: 'Pending Compliance', value: '24', change: '-2%', icon: AlertCircle, color: 'var(--danger)' },
+// Premium Analytics Data
+const chartData = [
+  { name: 'Jan', revenue: 4200, tasks: 140 },
+  { name: 'Feb', revenue: 3800, tasks: 168 },
+  { name: 'Mar', revenue: 5600, tasks: 220 },
+  { name: 'Apr', revenue: 4800, tasks: 190 },
+  { name: 'May', revenue: 6200, tasks: 250 },
+  { name: 'Jun', revenue: 7400, tasks: 310 },
 ];
 
-const chartData = [
-  { name: 'Jan', revenue: 4000, tasks: 240 },
-  { name: 'Feb', revenue: 3000, tasks: 198 },
-  { name: 'Mar', revenue: 2000, tasks: 980 },
-  { name: 'Apr', revenue: 2780, tasks: 390 },
-  { name: 'May', revenue: 1890, tasks: 480 },
-  { name: 'Jun', revenue: 2390, tasks: 380 },
+const dashboardStats = [
+  { label: 'Total Revenue', value: '₹14.2L', change: '+12.5%', icon: DollarSign, color: 'var(--primary)' },
+  { label: 'Active Tasks', value: '452', change: '+5.2%', icon: Briefcase, color: 'var(--warning)' },
+  { label: 'Filed Today', value: '18', change: '+8%', icon: CheckCircle2, color: 'var(--success)' },
+  { label: 'Compliance Index', value: '94.2%', change: '+1.2%', icon: TrendingUp, color: 'var(--accent)' },
 ];
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [orgName, setOrgName] = useState('Turia Practice Solutions');
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [complianceSummary, setComplianceSummary] = useState({ filed: 12, pending: 8, overdue: 4 });
-  const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: 'Compliance Warning', message: 'GSTR-3B for Reliance is overdue.', type: 'Overdue', timestamp: '10:30 AM', is_read: false },
+    { id: 2, title: 'New Lead Captured', message: 'Inquiry from Zomato Ops.', type: 'Nudge', timestamp: '11:15 AM', is_read: false }
+  ]);
 
-  React.useEffect(() => {
-    // Fetch Compliance
-    fetch('http://127.0.0.1:5000/api/compliance')
-      .then(res => res.json())
-      .then(data => {
-        const filed = data.filter((r: any) => r.status === 'Filed').length;
-        const pending = data.filter((r: any) => r.status === 'Pending').length;
-        const overdue = data.filter((r: any) => r.status === 'Overdue').length;
-        setComplianceSummary({ filed, pending, overdue });
-      });
+  const handleLogin = (name: string) => {
+    setOrgName(name);
+    setIsAuthenticated(true);
+  };
 
-    // Fetch Notifications
-    fetch('http://127.0.0.1:5000/api/notifications')
-      .then(res => res.json())
-      .then(data => setNotifications(data.length > 0 ? data : [
-        { id: 1, title: 'Overdue Task Escalated', message: 'GST filing for Turia Ind. is 2 days overdue.', type: 'Overdue', timestamp: '09:30', is_read: false },
-        { id: 2, title: 'Notice Hearing Nudge', message: 'ITD Hearing starts in 2 hours.', type: 'Reminder', timestamp: '10:15', is_read: false }
-      ]));
-  }, []);
+  // Auth Guard
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  const renderDashboard = () => (
+    <div className="animate-fade-in">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
+            {dashboardStats.map((stat, i) => (
+                <div key={i} className="card" style={{ padding: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <div style={{ padding: '10px', background: `${stat.color}15`, borderRadius: '12px', color: stat.color }}>
+                            <stat.icon size={20} />
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: '800', color: stat.change.startsWith('+') ? 'var(--success)' : 'var(--danger)' }}>
+                            {stat.change}
+                        </span>
+                    </div>
+                    <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>{stat.label}</p>
+                    <h2 style={{ fontSize: '28px', fontWeight: '800' }}>{stat.value}</h2>
+                </div>
+            ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '32px' }}>
+            <div className="card" style={{ padding: '32px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '32px' }}>Practice Revenue & Output</h3>
+                <div style={{ height: '300px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                            <defs>
+                                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600 }} />
+                            <Tooltip 
+                                contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}
+                                itemStyle={{ fontWeight: 800 }}
+                            />
+                            <Area type="monotone" dataKey="revenue" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            <div className="card" style={{ padding: '32px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '24px' }}>Priority Deadlines</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {[
+                        { title: 'GSTR-1 Filing', client: 'Reliance Ind.', time: '2h remaining', urgent: true },
+                        { title: 'TDS Reconciliation', client: 'TCS Ltd.', time: '5h remaining', urgent: false },
+                        { title: 'ROC Form MGT-7', client: 'Zomato Ops', time: 'Tomorrow', urgent: false },
+                    ].map((d, i) => (
+                        <div key={i} style={{ padding: '16px', background: 'var(--background)', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <p style={{ fontSize: '14px', fontWeight: '800', marginBottom: '2px' }}>{d.title}</p>
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{d.client}</p>
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: '800', color: d.urgent ? 'var(--danger)' : 'var(--text-secondary)' }}>{d.time.toUpperCase()}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard': return renderDashboard();
+      case 'clients':
+      case 'clients:all_clients': return <Clients />;
+      case 'clients:leads': return <Leads />;
+      case 'clients:client_portal': return <ClientPortal />;
+      case 'clients:dsc_manager': return <DSCManager />;
+      case 'tasks':
+      case 'tasks:my_tasks':
+      case 'tasks:team_tasks': return <Tasks />;
+      case 'compliance':
+      case 'compliance:deadlines': return <ComplianceCalendar />;
+      case 'compliance:calendar': return <CalendarView />;
+      case 'notices': return <Notices />;
+      case 'documents': return <Documents />;
+      case 'team': return <Team />;
+      default:
+        if (activeTab === 'communications:mailbox') return <MailBox />;
+        if (activeTab.startsWith('communications')) return <Communication />;
+        if (activeTab.startsWith('billing')) return <Billing />;
+        return (
+          <div className="card" style={{ textAlign: 'center', padding: '120px 0', borderStyle: 'dashed' }}>
+            <div style={{ 
+                width: '120px', height: '120px', background: 'var(--background)', borderRadius: '50%', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' 
+            }}>
+                <Settings size={48} color="var(--text-secondary)" className="spin-slow" />
+            </div>
+            <h2 style={{ fontSize: '24px', fontWeight: '800' }}>Module Under Construction</h2>
+            <p style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>The {activeTab} high-fidelity suite is being provisioned.</p>
+          </div>
+        );
+    }
+  };
 
   return (
-    <div className="app-container" style={{ display: 'flex', minHeight: '100vh', padding: '20px' }}>
+    <div className="app-container" style={{ display: 'flex', minHeight: '100vh', background: 'var(--app-bg)' }}>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
-      <main style={{ 
-        marginLeft: 'calc(var(--sidebar-width) + 40px)', 
-        flex: 1,
-        padding: '20px 40px'
-      }}>
-        {/* Header */}
-        <header className="card" style={{
-          height: 'var(--header-height)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 32px',
-          marginBottom: '32px',
-          borderRadius: '20px',
-          background: 'var(--surface)'
-        }}>
-          <div style={{ visibility: 'hidden' }}></div>
+      <main style={{ marginLeft: 'var(--sidebar-width)', flex: 1, padding: '40px 60px' }}>
+        {/* Top Navigation Bar */}
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '48px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+             <div style={{ padding: '10px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <Building2 size={24} color="var(--primary)" />
+             </div>
+             <div>
+                <h1 style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '-0.5px' }}>{orgName}</h1>
+                <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Administrator Console</p>
+             </div>
+          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
             <div style={{ position: 'relative' }}>
               <button 
-                onClick={() => { setShowNotifications(!showNotifications); }}
-                style={{ background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '10px', borderRadius: '12px', position: 'relative' }}
+                onClick={() => setShowNotifications(!showNotifications)}
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '12px', borderRadius: '14px', position: 'relative' }}
               >
                 <Bell size={20} />
-                {notifications.some(n => !n.is_read) && (
-                  <div style={{ position: 'absolute', top: '8px', right: '8px', width: '8px', height: '8px', background: 'var(--danger)', borderRadius: '50%', border: '2px solid white' }} />
-                )}
+                <div style={{ position: 'absolute', top: '10px', right: '10px', width: '8px', height: '8px', background: 'var(--danger)', borderRadius: '50%', border: '2px solid var(--surface)' }} />
               </button>
               
               <AnimatePresence>
                 {showNotifications && (
                   <motion.div 
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                    className="card" 
-                    style={{ position: 'absolute', top: '100%', right: 0, width: '380px', marginTop: '12px', zIndex: 1000, padding: '24px' }}
+                    initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 15 }}
+                    className="card" style={{ position: 'absolute', top: '100%', right: 0, width: '380px', marginTop: '16px', zIndex: 1000, padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}
                   >
-                    <h4 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: '700' }}>Practice Alerts</h4>
+                    <h4 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: '800' }}>Recent Firm Activity</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {notifications.map(n => (
-                        <div key={n.id} style={{ display: 'flex', gap: '12px', padding: '14px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                          <div style={{ width: '8px', height: '8px', marginTop: '6px', borderRadius: '50%', background: n.type === 'Overdue' ? 'var(--danger)' : 'var(--warning)' }} />
+                        <div key={n.id} style={{ display: 'flex', gap: '12px', padding: '16px', background: 'var(--background)', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                          <div style={{ width: '8px', height: '8px', marginTop: '6px', borderRadius: '50%', background: n.type === 'Overdue' ? 'var(--danger)' : 'var(--primary)' }} />
                           <div style={{ flex: 1 }}>
-                            <p style={{ fontSize: '13px', fontWeight: '700' }}>{n.title}</p>
-                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{n.message}</p>
-                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '8px', display: 'block' }}>{n.timestamp}</span>
+                            <p style={{ fontSize: '13px', fontWeight: '800' }}>{n.title}</p>
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: '500' }}>{n.message}</p>
+                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '8px', display: 'block', fontWeight: '700' }}>{n.timestamp}</span>
                           </div>
                         </div>
                       ))}
@@ -137,183 +229,28 @@ function App() {
               </AnimatePresence>
             </div>
 
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px',
-              padding: '6px 12px',
-              background: 'var(--background)',
-              borderRadius: '14px',
-              border: '1px solid var(--border)'
-            }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'var(--primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: '700',
-                color: 'white',
-                fontSize: '14px'
-              }}>V</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '8px 16px', background: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border)' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, var(--primary), var(--accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', color: 'white', fontSize: '14px' }}>V</div>
               <div style={{ textAlign: 'left' }}>
-                <p style={{ fontSize: '13px', fontWeight: '700' }}>Vidyasagar Dhage</p>
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Senior Partner</p>
+                <p style={{ fontSize: '13px', fontWeight: '800' }}>Vidyasagar Dhage</p>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600' }}>Managing Partner</p>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Content Area */}
-        <div className="animate-fade-in" style={{ paddingBottom: '40px' }}>
-          {activeTab === 'dashboard' && (
-            <>
-              <div style={{ marginBottom: '40px' }}>
-                <h1 style={{ marginBottom: '12px' }}>Firm Overview</h1>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Welcome back! Track your practice success and statutory deadlines.</p>
-              </div>
-
-              {/* Stats Grid */}
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-                gap: '24px',
-                marginBottom: '40px' 
-              }}>
-                {dashboardStats.map((stat, i) => (
-                  <div key={i} className="card" style={{ padding: '28px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                      <div style={{ 
-                        width: '52px', 
-                        height: '52px', 
-                        borderRadius: '16px', 
-                        background: `rgba(${stat.color === 'var(--primary)' ? '37, 99, 235' : stat.color === 'var(--warning)' ? '245, 158, 11' : stat.color === 'var(--success)' ? '34, 197, 94' : '239, 68, 68'}, 0.1)`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <stat.icon size={26} color={stat.color} />
-                      </div>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '6px',
-                        color: stat.change.startsWith('+') ? 'var(--success)' : 'var(--danger)',
-                        fontSize: '14px',
-                        fontWeight: '700'
-                      }}>
-                        <TrendingUp size={18} />
-                        {stat.change}
-                      </div>
-                    </div>
-                    <div>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', marginBottom: '6px' }}>{stat.label}</p>
-                      <h2 style={{ fontSize: '32px', fontWeight: '800' }}>{stat.value}</h2>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Charts Section */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-                <div className="card" style={{ padding: '32px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px' }}>
-                    <h3 style={{ fontSize: '20px', fontWeight: '700' }}>Growth & Performance</h3>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button style={{ padding: '8px 16px', background: 'var(--background)', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '12px' }}>Weekly</button>
-                      <button style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', borderRadius: '10px', fontSize: '12px' }}>Monthly</button>
-                    </div>
-                  </div>
-                  <div style={{ height: '320px', width: '100%' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.1}/>
-                            <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--text-secondary)', fontSize: 12}} dy={10} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: 'var(--text-secondary)', fontSize: 12}} />
-                        <Tooltip 
-                          contentStyle={{ background: 'white', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                        />
-                        <Area type="monotone" dataKey="revenue" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div className="card" style={{ padding: '32px' }}>
-                  <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '24px' }}>Compliance Health</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(34, 197, 94, 0.05)', borderRadius: '14px', border: '1px solid rgba(34, 197, 94, 0.1)' }}>
-                      <span style={{ fontSize: '14px', color: 'var(--success)', fontWeight: '700' }}>✓ Filed on Time</span>
-                      <span style={{ fontWeight: '800' }}>{complianceSummary.filed}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(245, 158, 11, 0.05)', borderRadius: '14px', border: '1px solid rgba(245, 158, 11, 0.1)' }}>
-                      <span style={{ fontSize: '14px', color: 'var(--warning)', fontWeight: '700' }}>⏳ Pending Filing</span>
-                      <span style={{ fontWeight: '800' }}>{complianceSummary.pending}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '14px', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
-                      <span style={{ fontSize: '14px', color: 'var(--danger)', fontWeight: '700' }}>⚠ Overdue Status</span>
-                      <span style={{ fontWeight: '800' }}>{complianceSummary.overdue}</span>
-                    </div>
-                    <button 
-                      onClick={() => setActiveTab('compliance')}
-                      style={{ marginTop: '12px', padding: '14px', background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '12px', fontWeight: '700', fontSize: '13px' }}
-                    >
-                      View Full Ecosystem
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {activeTab === 'clients' && <Clients />}
-          {activeTab === 'tasks' && <Tasks />}
-          {activeTab === 'billing' && <Billing />}
-          {activeTab === 'compliance' && <Compliance />}
-          {activeTab === 'calendar' && <CalendarView />}
-          {activeTab === 'inbox' && <MailBox />}
-          {activeTab === 'whatsapp' && <Communication />}
-          {activeTab === 'documents' && <Documents />}
-          {activeTab === 'dsc' && <DSCManager />}
-          {activeTab === 'portal' && <ClientPortal />}
-
-          {[''].includes(activeTab) && (
-            <div className="card" style={{ textAlign: 'center', padding: '120px 0', borderStyle: 'dashed' }}>
-              <div style={{ 
-                width: '120px', 
-                height: '120px', 
-                background: 'var(--background)', 
-                borderRadius: '50%', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                margin: '0 auto 24px'
-              }}>
-                <Settings size={48} color="var(--text-secondary)" className="spin-slow" />
-              </div>
-              <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>Module Under Construction</h2>
-              <p style={{ color: 'var(--text-secondary)' }}>We're building the high-fidelity {activeTab} module. Stay tuned!</p>
-            </div>
-          )}
+        {/* Dynamic Content View */}
+        <div style={{ minHeight: 'calc(100vh - 200px)' }}>
+          {renderContent()}
         </div>
       </main>
 
       <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .spin-slow {
-          animation: spin 8s linear infinite;
-        }
+        .app-container { --sidebar-width: 280px; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spin-slow { animation: rotate 12s linear infinite; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
   );

@@ -145,126 +145,218 @@ const Clients: React.FC = () => {
   });
 
   return (
-    <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+    <div className="animate-fade-in" style={{ padding: '0 20px' }}>
+      {/* Page Header */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'flex-end', 
+        marginBottom: '40px',
+        padding: '0 8px'
+      }}>
         <div>
-          <h1>Client Management</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Manage your firm's professional client relationships and statutory data.</p>
+          <h1 style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-1px', marginBottom: '8px' }}>
+            Client Management
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '16px', fontWeight: '500' }}>
+            Manage your firm's professional client relationships and statutory data.
+          </p>
         </div>
-        <button onClick={() => setShowAddModal(true)}>
-          <Plus size={18} /> Add New Client
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="premium-btn"
+        >
+          <Plus size={20} strokeWidth={3} /> Add New Client
         </button>
       </div>
 
-      <div className="card" style={{ padding: '0', borderRadius: '16px', overflow: 'hidden' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
-            <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+      <div className="card" style={{ padding: '0', borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface)' }}>
+        {/* Search & Filter Toolbar */}
+        <div style={{ 
+          padding: '24px 32px', 
+          borderBottom: '1px solid var(--border)', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          gap: '32px',
+          background: 'rgba(255, 255, 255, 0.02)'
+        }}>
+          <div style={{ position: 'relative', flex: 1, maxWidth: '500px' }}>
+            <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
             <input 
               type="text" 
-              placeholder="Search clients by name, email or ID..." 
+              placeholder="Search clients by name, email, GSTIN or ID..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ width: '100%', paddingLeft: '44px', background: 'var(--background)' }}
+              style={{ 
+                width: '100%', 
+                padding: '14px 14px 14px 48px', 
+                background: 'var(--background)',
+                borderRadius: '14px',
+                border: '1px solid var(--border)',
+                fontSize: '15px'
+              }}
             />
           </div>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Status:</span>
-            <select 
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer' }}
-            >
-              <option value="All">All Entities</option>
-              <option value="Active">Active</option>
-              <option value="Onboarding">Onboarding</option>
-              <option value="Compliance Check">Compliance Check</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--background)', padding: '6px 16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <Filter size={16} color="var(--text-secondary)" />
+              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Status:</span>
+              <select 
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{ 
+                  background: 'transparent', 
+                  color: 'var(--text-primary)', 
+                  border: 'none', 
+                  padding: '6px 0', 
+                  fontWeight: '700',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="All">All Entities</option>
+                <option value="Active">Active</option>
+                <option value="Onboarding">Onboarding</option>
+                <option value="Compliance Check">Compliance Check</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <button className="glass-card" style={{ padding: '12px', borderRadius: '12px' }}>
+              <MoreVertical size={20} />
+            </button>
           </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ minWidth: '1200px' }}>
+          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0', minWidth: '1100px' }}>
             <thead>
-              <tr>
-                <th>Business Entity & Name</th>
-                <th>Contact Details</th>
-                <th>Entity Type</th>
-                <th>Services</th>
-                <th>Employees</th>
-                <th>Auditor</th>
-                <th>Status</th>
-                <th style={{ width: '80px' }}></th>
+              <tr style={{ background: 'rgba(255, 255, 255, 0.01)' }}>
+                <th style={{ padding: '20px 32px' }}>Business Entity & Name</th>
+                <th style={{ padding: '20px 24px' }}>Contact Details</th>
+                <th style={{ padding: '20px 24px' }}>Entity Type</th>
+                <th style={{ padding: '20px 24px' }}>Services</th>
+                <th style={{ padding: '20px 24px' }}>Employees</th>
+                <th style={{ padding: '20px 24px' }}>Auditor</th>
+                <th style={{ padding: '20px 24px' }}>Status</th>
+                <th style={{ padding: '20px 32px', width: '80px' }}></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading client records...</td>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>
+                      <div className="spin" style={{ marginBottom: '16px' }}><Zap size={32} /></div>
+                      Loading practitioner records...
+                    </td>
                 </tr>
               ) : filteredClients.length === 0 ? (
                 <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>
-                      <div style={{ marginBottom: '12px' }}><Search size={40} opacity={0.2} /></div>
-                      No clients found matching your search criteria.
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '80px', color: 'var(--text-secondary)' }}>
+                      <div style={{ marginBottom: '16px' }}><Search size={48} opacity={0.1} /></div>
+                      <p style={{ fontSize: '18px', fontWeight: '600' }}>No clients found</p>
+                      <p style={{ fontSize: '14px' }}>Try adjusting your filters or search query</p>
                     </td>
                 </tr>
               ) : filteredClients.map((client) => (
-                <tr key={client.id} className="row-hover">
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: 'rgba(37, 99, 235, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
-                        <Building2 size={22} />
+                <tr key={client.id} className="row-hover" style={{ transition: '0.2s' }}>
+                  <td style={{ padding: '20px 32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ 
+                        width: '48px', 
+                        height: '48px', 
+                        borderRadius: '14px', 
+                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1))', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: 'var(--primary)',
+                        border: '1px solid rgba(99, 102, 241, 0.2)'
+                      }}>
+                        <Building2 size={24} />
                       </div>
                       <div>
-                        <p style={{ fontWeight: '700', fontSize: '15px' }}>{client.name}</p>
-                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>ID: TR-{1000 + client.id}</p>
+                        <p style={{ fontWeight: '800', fontSize: '15px', color: 'var(--text-primary)', marginBottom: '2px' }}>{client.name}</p>
+                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>ID: TR-{1000 + client.id}</p>
                       </div>
                     </div>
                   </td>
-                  <td>
+                  <td style={{ padding: '20px 24px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                        <Phone size={14} color="var(--text-secondary)" /> {client.phone}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '500' }}>
+                        <Phone size={14} color="var(--text-secondary)" /> {client.phone || '--'}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
                         <Mail size={14} color="var(--text-secondary)" /> {client.email}
                       </div>
                     </div>
                   </td>
-                  <td>
-                    <span style={{ fontSize: '13px', fontWeight: '600' }}>{client.entity_type}</span>
+                  <td style={{ padding: '20px 24px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>{client.entity_type}</span>
                   </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  <td style={{ padding: '20px 24px' }}>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {(Array.isArray(client.services) ? client.services : (client.services as any)?.split(',') || []).slice(0, 2).map((s: string, i: number) => (
-                        <span key={i} style={{ padding: '2px 8px', borderRadius: '6px', background: 'rgba(37, 99, 235, 0.05)', color: 'var(--primary)', fontSize: '11px', fontWeight: '700' }}>{s.trim()}</span>
+                        <span key={i} style={{ 
+                          padding: '4px 10px', 
+                          borderRadius: '8px', 
+                          background: 'rgba(99, 102, 241, 0.08)', 
+                          color: 'var(--primary)', 
+                          fontSize: '11px', 
+                          fontWeight: '800',
+                          border: '1px solid rgba(99, 102, 241, 0.1)'
+                        }}>{s.trim()}</span>
                       ))}
                     </div>
                   </td>
-                  <td>
+                  <td style={{ padding: '20px 24px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: '700' }}>{client.employees}</span>
+                      <span style={{ fontWeight: '800', fontSize: '14px' }}>{client.employees?.toLocaleString() || '0'}</span>
                       <UsersIcon size={14} color="var(--text-secondary)" />
                     </div>
                   </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--background)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700' }}>
+                  <td style={{ padding: '20px 24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ 
+                          width: '32px', 
+                          height: '32px', 
+                          borderRadius: '10px', 
+                          background: 'var(--background)', 
+                          border: '1px solid var(--border)', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          fontSize: '11px', 
+                          fontWeight: '800',
+                          color: 'var(--primary)'
+                        }}>
                             {client.auditor.split(' ').map(n => n[0]).join('')}
                         </div>
-                        <span style={{ fontSize: '13px' }}>{client.auditor}</span>
+                        <span style={{ fontSize: '13px', fontWeight: '600' }}>{client.auditor}</span>
                     </div>
                   </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[client.status] }}></div>
-                      <span style={{ fontSize: '13px', fontWeight: '600' }}>{client.status}</span>
+                  <td style={{ padding: '20px 24px' }}>
+                    <div style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      padding: '6px 12px',
+                      borderRadius: '10px',
+                      background: `${statusColors[client.status]}10`,
+                      border: `1px solid ${statusColors[client.status]}25`
+                    }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[client.status], boxShadow: `0 0 10px ${statusColors[client.status]}` }}></div>
+                      <span style={{ fontSize: '12px', fontWeight: '800', color: statusColors[client.status] }}>{client.status.toUpperCase()}</span>
                     </div>
                   </td>
-                  <td>
-                    <button style={{ padding: '8px', background: 'transparent', color: 'var(--text-secondary)', border: 'none' }} className="hover-icon">
+                  <td style={{ padding: '20px 32px' }}>
+                    <button style={{ 
+                      padding: '10px', 
+                      background: 'transparent', 
+                      color: 'var(--text-secondary)', 
+                      border: 'none',
+                      borderRadius: '8px'
+                    }} className="hover-action">
                       <MoreVertical size={20} />
                     </button>
                   </td>
@@ -281,130 +373,142 @@ const Clients: React.FC = () => {
           <div style={{ 
             position: 'fixed', 
             inset: 0, 
-            background: 'rgba(0,0,0,0.4)', 
-            backdropFilter: 'blur(4px)', 
+            background: 'rgba(0,0,0,0.6)', 
+            backdropFilter: 'blur(8px)', 
             zIndex: 1000, 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            padding: '20px'
+            padding: '40px'
           }}>
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="card" style={{ width: '800px', maxHeight: '90vh', overflow: 'hidden', padding: 0, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', margin: 'auto' }}
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="card" 
+              style={{ width: '800px', padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: '0 30px 60px rgba(0,0,0,0.4)' }}
             >
-              <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0 }}>New Client Onboarding</h2>
-                <button onClick={() => setShowAddModal(false)} style={{ background: 'transparent', color: 'var(--text-secondary)', padding: '8px' }}>
-                  <X size={24} />
+              <div style={{ 
+                padding: '32px 40px', 
+                borderBottom: '1px solid var(--border)', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                background: 'rgba(255, 255, 255, 0.02)'
+              }}>
+                <div>
+                  <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '4px' }}>Client Onboarding</h2>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Initialize statutory data and entity profile</p>
+                </div>
+                <button 
+                  onClick={() => setShowAddModal(false)}
+                  style={{ background: 'var(--background)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '10px', borderRadius: '12px' }}
+                >
+                  <X size={20} />
                 </button>
               </div>
 
-              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--background)', padding: '0 32px' }}>
-                <button 
-                  onClick={() => setActiveTab('gst')}
-                  style={{ background: 'transparent', borderBottom: activeTab === 'gst' ? '3px solid var(--primary)' : 'none', color: activeTab === 'gst' ? 'var(--primary)' : 'var(--text-secondary)', padding: '16px 24px', borderRadius: 0, border: 'none' }}
-                >
-                  GST & Address Mapping
-                </button>
-                <button 
-                  onClick={() => setActiveTab('other')}
-                  style={{ background: 'transparent', borderBottom: activeTab === 'other' ? '3px solid var(--primary)' : 'none', color: activeTab === 'other' ? 'var(--primary)' : 'var(--text-secondary)', padding: '16px 24px', borderRadius: 0, border: 'none' }}
-                >
-                  Statutory & Labour Details
-                </button>
+              <div style={{ display: 'flex', gap: '32px', padding: '0 40px', borderBottom: '1px solid var(--border)', background: 'rgba(255, 255, 255, 0.01)' }}>
+                {[
+                  { id: 'gst', label: 'GST & Address' },
+                  { id: 'other', label: 'Statutory & Labour' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    style={{
+                      padding: '20px 0',
+                      background: 'transparent',
+                      color: activeTab === tab.id ? 'var(--primary)' : 'var(--text-secondary)',
+                      border: 'none',
+                      borderBottom: `3px solid ${activeTab === tab.id ? 'var(--primary)' : 'transparent'}`,
+                      fontSize: '14px',
+                      fontWeight: '700',
+                      transition: '0.2s',
+                      borderRadius: 0
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              <div style={{ padding: '32px', overflowY: 'auto', maxHeight: 'calc(90vh - 150px)' }}>
+              <div style={{ padding: '40px', maxHeight: '50vh', overflowY: 'auto' }}>
                 {activeTab === 'gst' ? (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Legal Business Name</label>
-                      <input 
-                        type="text" name="name" value={formData.name} onChange={handleInputChange}
-                        placeholder="e.g. Turia Industries Private Limited" style={{ width: '100%' }} 
-                      />
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Full Legal Business Name</label>
+                      <input type="text" name="name" placeholder="e.g. Reliance Industries Limited" value={formData.name} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>GSTIN Number</label>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>GSTIN Number</label>
                       <div style={{ display: 'flex', gap: '10px' }}>
-                        <input 
-                            type="text" name="gstin" value={formData.gstin} onChange={handleInputChange}
-                            placeholder="27AAACT...1Z2" style={{ flex: 1 }} 
-                        />
-                        <button onClick={handleVerifyGST} style={{ whiteSpace: 'nowrap', padding: '0 20px' }}>
+                        <input type="text" name="gstin" placeholder="27AAACT0000A1Z5" value={formData.gstin} onChange={handleInputChange} style={{ flex: 1, background: 'var(--background)' }} />
+                        <button onClick={handleVerifyGST} style={{ whiteSpace: 'nowrap', padding: '0 20px', background: 'var(--background)', color: 'var(--primary)', border: '1px solid var(--border)' }}>
                           {isVerifying ? 'Verifying...' : 'Verify'}
                         </button>
                       </div>
                     </div>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Place of Supply</label>
-                        <select name="place_of_supply" value={formData.place_of_supply} onChange={handleInputChange} style={{ width: '100%' }}>
-                            <option value="Maharashtra (27)">Maharashtra (27)</option>
-                            <option value="Karnataka (29)">Karnataka (29)</option>
-                            <option value="Delhi (07)">Delhi (07)</option>
-                        </select>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Place of Supply</label>
+                      <select name="place_of_supply" value={formData.place_of_supply} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }}>
+                        <option value="Maharashtra (27)">Maharashtra (27)</option>
+                        <option value="Karnataka (29)">Karnataka (29)</option>
+                        <option value="Delhi (07)">Delhi (07)</option>
+                      </select>
                     </div>
                     <div style={{ gridColumn: 'span 2' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Principal Place of Business (Full Address)</label>
-                      <textarea 
-                        name="address" value={formData.address} onChange={handleInputChange}
-                        rows={3} placeholder="Building, Street, Area, City, Pin Code" style={{ width: '100%', resize: 'none' }}
-                      ></textarea>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Principal Place of Business</label>
+                      <textarea name="address" placeholder="Complete office address..." value={formData.address} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)', minHeight: '100px' }} />
                     </div>
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>PAN Number</label>
-                      <input 
-                        type="text" name="pan" value={formData.pan} onChange={handleInputChange}
-                        placeholder="ABCDE1234F" style={{ width: '100%' }} 
-                      />
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>PAN Number</label>
+                      <input type="text" name="pan" placeholder="ABCDE1234F" value={formData.pan} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>TAN Number</label>
-                      <input 
-                        type="text" name="tan" value={formData.tan} onChange={handleInputChange}
-                        placeholder="MUMB12345C" style={{ width: '100%' }} 
-                      />
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>TAN Number</label>
+                      <input type="text" name="tan" placeholder="MUMB01234F" value={formData.tan} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>CIN / LLPIN</label>
-                      <input 
-                        type="text" name="cin_llp" value={formData.cin_llp} onChange={handleInputChange}
-                        placeholder="U12345MH2024PTC123456" style={{ width: '100%' }} 
-                      />
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>CIN / LLPIN</label>
+                      <input type="text" name="cin_llp" placeholder="U12345MH2024PTC123456" value={formData.cin_llp} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Udyam Registration</label>
-                      <input 
-                        type="text" name="udyam" value={formData.udyam} onChange={handleInputChange}
-                        placeholder="UDYAM-MH-01-1234567" style={{ width: '100%' }} 
-                      />
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>PF Registry No.</label>
+                      <input type="text" name="pf_no" placeholder="MH/BAN/0012345/000" value={formData.pf_no} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Professional Tax (PT) No.</label>
-                      <input 
-                        type="text" name="professional_tax" value={formData.professional_tax} onChange={handleInputChange}
-                        placeholder="27123456789P" style={{ width: '100%' }} 
-                      />
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Contact Phone</label>
+                      <input type="text" name="phone" placeholder="+91 00000 00000" value={formData.phone} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>PF / ESI Registry</label>
-                      <input 
-                        type="text" name="pf_no" value={formData.pf_no} onChange={handleInputChange}
-                        placeholder="MH/BAN/0012345/000" style={{ width: '100%' }} 
-                      />
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Auditor Assigned</label>
+                      <select name="auditor" value={formData.auditor} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }}>
+                        <option>Vidyasagar D.</option>
+                        <option>Sarah J.</option>
+                        <option>Mehul S.</option>
+                      </select>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div style={{ padding: '24px 32px', borderTop: '1px solid var(--border)', background: 'var(--background)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button onClick={() => setShowAddModal(false)} style={{ background: 'white', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>Cancel</button>
-                <button onClick={handleFinalize} disabled={isSaving || !formData.name}>
-                    {isSaving ? 'Saving Record...' : 'Finalize Onboarding'}
+              <div style={{ padding: '32px 40px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '16px', background: 'rgba(255, 255, 255, 0.02)' }}>
+                <button 
+                  onClick={() => setShowAddModal(false)}
+                  style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '12px 24px', fontWeight: '700' }}
+                >
+                  Discard
+                </button>
+                <button 
+                  onClick={handleFinalize}
+                  disabled={isSaving || !formData.name}
+                  style={{ background: 'var(--primary)', color: 'white', padding: '12px 32px', fontWeight: '700', boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)' }}
+                >
+                  {isSaving ? 'Saving...' : 'Finalize Onboarding'}
                 </button>
               </div>
             </motion.div>
@@ -413,8 +517,34 @@ const Clients: React.FC = () => {
       </AnimatePresence>
 
       <style>{`
-        .row-hover:hover { background: rgba(37, 99, 235, 0.02) !important; cursor: pointer; transition: 0.2s; }
-        .hover-icon:hover { color: var(--primary) !important; background: rgba(37, 99, 235, 0.1) !important; border-radius: 8px; }
+        .row-hover:hover { 
+          background: rgba(255, 255, 255, 0.03) !important; 
+          cursor: pointer; 
+          transform: translateX(4px);
+        }
+        .hover-action:hover { 
+          color: var(--primary) !important; 
+          background: rgba(99, 102, 241, 0.1) !important; 
+        }
+        th {
+          text-align: left;
+          font-size: 13px;
+          font-weight: 800;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          border-bottom: 1px solid var(--border);
+        }
+        td {
+          border-bottom: 1px solid var(--border);
+        }
+        .spin {
+          animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
       `}</style>
     </div>
   );
