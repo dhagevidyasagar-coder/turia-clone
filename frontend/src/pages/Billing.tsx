@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Plus, 
-  Search, 
-  Filter, 
   Download, 
   MoreVertical, 
-  CreditCard, 
-  ArrowUpRight, 
-  Clock, 
-  CheckCircle2,
-  FileText,
   X,
   Printer
 } from 'lucide-react';
@@ -83,7 +76,7 @@ const Billing: React.FC = () => {
             </div>
         </div>
         
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflow: 'auto', maxHeight: '500px' }} className="custom-scrollbar">
             <table style={{ width: '100%' }}>
                 <thead>
                     <tr>
@@ -175,6 +168,29 @@ const Billing: React.FC = () => {
             </div>
         )}
       </AnimatePresence>
+      <style>{`
+        th {
+          position: sticky;
+          top: 0;
+          background: var(--surface);
+          z-index: 10;
+          text-align: left;
+          font-size: 11px;
+          font-weight: 800;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 16px 24px;
+          border-bottom: 1px solid var(--border);
+        }
+        td {
+          padding: 16px 24px;
+          border-bottom: 1px solid var(--border);
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.05); border-radius: 10px; }
+      `}</style>
     </div>
   );
 };

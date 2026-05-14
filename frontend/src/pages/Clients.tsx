@@ -74,13 +74,20 @@ const Clients: React.FC = () => {
     employees: 0
   });
 
+  const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
+
   useEffect(() => {
     fetchClients();
+    
+    // Close dropdown on click outside
+    const handleClickOutside = () => setActiveDropdownId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
   const fetchClients = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/clients');
+      const response = await fetch('http://127.0.0.1:5005/api/clients');
       const data = await response.json();
       setClients(data);
       setLoading(false);
@@ -106,7 +113,7 @@ const Clients: React.FC = () => {
   const handleFinalize = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/clients', {
+      const response = await fetch('http://127.0.0.1:5005/api/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -158,9 +165,7 @@ const Clients: React.FC = () => {
           <h1 style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-1px', marginBottom: '8px' }}>
             Client Management
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '16px', fontWeight: '500' }}>
-            Manage your firm's professional client relationships and statutory data.
-          </p>
+
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
@@ -222,13 +227,38 @@ const Clients: React.FC = () => {
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
-            <button className="glass-card" style={{ padding: '12px', borderRadius: '12px' }}>
-              <MoreVertical size={20} />
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button 
+                className={`glass-card ${activeDropdownId === 9999 ? 'active-dot' : ''}`} 
+                style={{ padding: '12px', borderRadius: '12px' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveDropdownId(activeDropdownId === 9999 ? null : 9999);
+                }}
+              >
+                <MoreVertical size={20} />
+              </button>
+              <AnimatePresence>
+                {activeDropdownId === 9999 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="dropdown-menu"
+                    style={{ right: 0, top: '100%', marginTop: '12px' }}
+                  >
+                    <div className="dropdown-item"><FileText size={16} /> Export to Excel</div>
+                    <div className="dropdown-item"><Zap size={16} /> Bulk Sync</div>
+                    <div className="dropdown-divider"></div>
+                    <div className="dropdown-item" style={{ color: '#ef4444' }}><X size={16} /> Clear All</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflow: 'auto', maxHeight: '650px' }} className="custom-scrollbar">
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0', minWidth: '1100px' }}>
             <thead>
               <tr style={{ background: 'rgba(255, 255, 255, 0.01)' }}>
@@ -350,15 +380,41 @@ const Clients: React.FC = () => {
                     </div>
                   </td>
                   <td style={{ padding: '20px 32px' }}>
-                    <button style={{ 
-                      padding: '10px', 
-                      background: 'transparent', 
-                      color: 'var(--text-secondary)', 
-                      border: 'none',
-                      borderRadius: '8px'
-                    }} className="hover-action">
-                      <MoreVertical size={20} />
-                    </button>
+                    <div style={{ position: 'relative' }}>
+                      <button 
+                        style={{ 
+                          padding: '10px', 
+                          background: 'transparent', 
+                          color: 'var(--text-secondary)', 
+                          border: 'none',
+                          borderRadius: '8px'
+                        }} 
+                        className={`hover-action ${activeDropdownId === client.id ? 'active-dot' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveDropdownId(activeDropdownId === client.id ? null : client.id);
+                        }}
+                      >
+                        <MoreVertical size={20} />
+                      </button>
+                      <AnimatePresence>
+                        {activeDropdownId === client.id && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="dropdown-menu"
+                            style={{ right: 0, top: '100%', marginTop: '8px' }}
+                          >
+                            <div className="dropdown-item"><FileText size={16} /> View Profile</div>
+                            <div className="dropdown-item"><MapPin size={16} /> Track Compliance</div>
+                            <div className="dropdown-item"><CreditCard size={16} /> Generate Invoice</div>
+                            <div className="dropdown-divider"></div>
+                            <div className="dropdown-item" style={{ color: '#ef4444' }}><Zap size={16} /> Archive Entity</div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -522,7 +578,7 @@ const Clients: React.FC = () => {
           cursor: pointer; 
           transform: translateX(4px);
         }
-        .hover-action:hover { 
+        .hover-action:hover, .active-dot { 
           color: var(--primary) !important; 
           background: rgba(99, 102, 241, 0.1) !important; 
         }
@@ -534,6 +590,10 @@ const Clients: React.FC = () => {
           text-transform: uppercase;
           letter-spacing: 0.5px;
           border-bottom: 1px solid var(--border);
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background: var(--surface);
         }
         td {
           border-bottom: 1px solid var(--border);
@@ -544,6 +604,37 @@ const Clients: React.FC = () => {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        .dropdown-menu {
+          position: absolute;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 8px;
+          min-width: 200px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+          z-index: 100;
+        }
+        .dropdown-item {
+          padding: 10px 14px;
+          border-radius: 8px;
+          display: flex;
+          alignItems: center;
+          gap: 12px;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-primary);
+          transition: 0.2s;
+          cursor: pointer;
+        }
+        .dropdown-item:hover {
+          background: rgba(99, 102, 241, 0.1);
+          color: var(--primary);
+        }
+        .dropdown-divider {
+          height: 1px;
+          background: var(--border);
+          margin: 6px 0;
         }
       `}</style>
     </div>

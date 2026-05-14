@@ -44,6 +44,34 @@ const ComplianceCalendar: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('timeline');
   const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 21)); // April 21, 2026
   const [selectedDay, setSelectedDay] = useState<number | null>(21);
+  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
+
+  React.useEffect(() => {
+    fetchCompliance();
+  }, []);
+
+  const fetchCompliance = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/compliance');
+      const data = await response.json();
+      
+      // Transform backend records to front-end Deadline interface
+      const transformed: Deadline[] = data.map((r: any) => ({
+        day: parseInt(r.deadline.split('-')[2]),
+        dateStr: `${r.deadline.split('-')[2]}th ${new Date(r.deadline).toLocaleString('default', { month: 'short' })}`,
+        title: r.title,
+        category: r.category as any,
+        severity: r.status === 'Overdue' ? 'Critical' : 'High',
+        clientCnt: 1,
+        completedCnt: r.status === 'Completed' ? 1 : 0
+      }));
+      
+      setDeadlines(transformed.length > 0 ? transformed : statutoryDeadlines);
+    } catch (error) {
+      console.error('Error fetching compliance:', error);
+      setDeadlines(statutoryDeadlines);
+    }
+  };
 
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const year = currentDate.getFullYear();
@@ -67,7 +95,7 @@ const ComplianceCalendar: React.FC = () => {
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const dayDeadlines = statutoryDeadlines.filter(sd => sd.day === d);
+      const dayDeadlines = deadlines.filter(sd => sd.day === d);
       const isSelected = selectedDay === d;
       const isToday = d === 21;
 
@@ -110,19 +138,10 @@ const ComplianceCalendar: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px', padding: '0 8px' }}>
         <div>
           <h1 className="display-serif" style={{ fontSize: '42px', marginBottom: '8px' }}>Compliance Command</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '16px', fontWeight: '600' }}>Master statutory timeline for India - FY 2026-27.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <button className="card" style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '700' }}>
-            <Download size={18} /> Export MIS
-          </button>
-          <button className="premium-btn">
-             <Plus size={20} strokeWidth={3} /> Add Custom Reminder
-          </button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '32px', height: 'calc(100vh - 220px)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', height: 'calc(100vh - 220px)' }}>
         {/* Main View Section */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', overflow: 'hidden' }}>
             <div className="card" style={{ padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
@@ -135,13 +154,10 @@ const ComplianceCalendar: React.FC = () => {
                 </div>
                 <div style={{ display: 'flex', background: 'var(--background)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-strong)' }}>
                     <button 
-                        onClick={() => setViewMode('grid')}
-                        style={{ padding: '8px', background: viewMode === 'grid' ? 'white' : 'transparent', borderRadius: '6px', color: viewMode === 'grid' ? 'var(--brand-blue)' : 'var(--text-secondary)', boxShadow: viewMode === 'grid' ? 'var(--shadow-sm)' : 'none' }}
-                    ><LayoutGrid size={18} /></button>
-                    <button 
-                        onClick={() => setViewMode('timeline')}
-                        style={{ padding: '8px', background: viewMode === 'timeline' ? 'white' : 'transparent', borderRadius: '6px', color: viewMode === 'timeline' ? 'var(--brand-blue)' : 'var(--text-secondary)', boxShadow: viewMode === 'timeline' ? 'var(--shadow-sm)' : 'none' }}
-                    ><List size={18} /></button>
+                        style={{ padding: '8px 16px', background: 'white', borderRadius: '6px', color: 'var(--brand-blue)', boxShadow: 'var(--shadow-sm)', fontWeight: '800', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <List size={18} /> Timeline View
+                    </button>
                 </div>
             </div>
 
@@ -159,7 +175,7 @@ const ComplianceCalendar: React.FC = () => {
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '32px' }}>
-                        {statutoryDeadlines.map((dl, idx) => (
+                        {deadlines.map((dl, idx) => (
                             <motion.div 
                                 initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: idx * 0.05 }}
                                 key={idx} className="card" 
@@ -188,36 +204,6 @@ const ComplianceCalendar: React.FC = () => {
                         ))}
                     </div>
                 )}
-            </div>
-        </div>
-
-        {/* Sidebar Intelligence */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div className="card" style={{ padding: '32px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                    <div style={{ width: '48px', height: '48px', background: 'var(--brand-subtle)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <ShieldCheck size={24} color="var(--brand-blue)" />
-                    </div>
-                    <div>
-                        <h3 className="ui-heading" style={{ fontSize: '18px' }}>Peak Insights</h3>
-                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>Managing 9 Statutory Events</p>
-                    </div>
-                </div>
-                <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '16px', borderLeft: '4px solid var(--danger)', marginBottom: '20px' }}>
-                    <p style={{ fontSize: '14px', fontWeight: '800', marginBottom: '4px' }}>Peak Surge: Apr 11</p>
-                    <p style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>Assign extra staff resources to GST team for 88 filings.</p>
-                </div>
-                <button style={{ width: '100%', padding: '16px', background: 'var(--background)', border: '1px solid var(--border-strong)', borderRadius: '12px', fontWeight: '700', fontSize: '14px' }}>View Resource Map</button>
-            </div>
-            
-            <div className="card" style={{ padding: '24px', background: 'var(--primary)', color: 'white' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                  <AlertCircle size={20} />
-                  <h4 style={{ fontWeight: '800', fontSize: '15px' }}>Penalty Advisory</h4>
-              </div>
-              <p style={{ fontSize: '13px', lineHeight: '1.6', fontWeight: '500', opacity: 0.9 }}>
-                  GSTR-3B monthly filings are entering the 5-day proximity zone. Automated client nudges will deploy tomorrow morning.
-              </p>
             </div>
         </div>
       </div>

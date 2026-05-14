@@ -36,14 +36,29 @@ interface Document {
 const Documents: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showScanModal, setShowScanModal] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [clientDetails, setClientDetails] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedClient, setSelectedClient] = useState('');
-  const [docs, setDocs] = useState<Document[]>([
-    { id: 1, name: 'GSTR-3B_April_Reliance.pdf', client_name: 'Reliance Industries', type: 'PDF', size: '2.4 MB', date: '20th Apr 2024', category: 'GST' },
-    { id: 2, name: 'PAN_Card_Vidyasagar.png', client_name: 'Vidyasagar Dhage', type: 'PNG', size: '1.1 MB', date: '18th Apr 2024', category: 'KYC' },
-    { id: 3, name: 'Audit_Report_TCS_FINAL.pdf', client_name: 'Tata Consultancy Services', type: 'PDF', size: '15.8 MB', date: '15th Apr 2024', category: 'Audit' },
-    { id: 4, name: 'Form_16_Rahul_Sharma.pdf', client_name: 'Rahul Sharma', type: 'PDF', size: '840 KB', date: '10th Apr 2024', category: 'ITR' }
-  ]);
+  const [docs, setDocs] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    fetchDocs();
+  }, []);
+
+  const fetchDocs = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/documents');
+      const data = await response.json();
+      setDocs(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      setLoading(false);
+    }
+  };
 
   const clients = ['Reliance Industries', 'Tata Consultancy Services', 'Vidyasagar Dhage', 'Rahul Sharma', 'California Burrito'];
 
@@ -54,21 +69,74 @@ const Documents: React.FC = () => {
     }
     setIsScanning(true);
     // Simulation
-    setTimeout(() => {
-        setIsScanning(false);
-        const newDoc: Document = {
-            id: Date.now(),
-            name: `Scanned_Doc_${new Date().getTime()}.pdf`,
+    setTimeout(async () => {
+        const docData = {
+            name: `Statutory_Doc_${new Date().getTime()}.pdf`,
             client_name: selectedClient,
             type: 'PDF',
-            size: '1.5 MB',
-            date: 'Just now',
+            size: '1.8 MB',
             category: 'KYC'
         };
-        setDocs([newDoc, ...docs]);
-        setShowScanModal(false);
-        setSelectedClient('');
+
+        try {
+            await fetch('http://127.0.0.1:5005/api/documents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(docData)
+            });
+            setIsScanning(false);
+            setShowScanModal(false);
+            setSelectedClient('');
+            fetchDocs();
+        } catch (error) {
+            console.error('Error saving document:', error);
+            setIsScanning(false);
+        }
     }, 3000);
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const docData = {
+        name: file.name,
+        client_name: 'General / Unassigned',
+        type: file.name.split('.').pop()?.toUpperCase() || 'FILE',
+        size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+        category: 'KYC'
+    };
+
+    try {
+        await fetch('http://127.0.0.1:5005/api/documents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(docData)
+        });
+        fetchDocs();
+    } catch (error) {
+        console.error('Error uploading document:', error);
+    }
+  };
+
+  const showClientInfo = async (clientName: string) => {
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/clients');
+      const clients = await response.json();
+      const client = clients.find((c: any) => c.name === clientName);
+      if (client) {
+        setClientDetails(client);
+        setShowClientModal(true);
+      } else {
+        alert('Client details not found in database.');
+      }
+    } catch (error) {
+      console.error('Error fetching client details:', error);
+    }
   };
 
   const getFileIcon = (type: string) => {
@@ -91,12 +159,22 @@ const Documents: React.FC = () => {
         <div style={{ display: 'flex', gap: '12px' }}>
           <button 
             onClick={() => setShowScanModal(true)}
-            style={{ background: 'white', color: 'var(--primary)', border: '1px solid var(--primary)' }}>
-            <Camera size={18} /> Scan Document
+            style={{ background: 'var(--background)', color: 'var(--primary)', border: '1px solid var(--border-strong)' }}
+          >
+            <Camera size={18} strokeWidth={3} /> Scan Document
           </button>
-          <button>
-            <Upload size={18} /> Upload File
+          <button 
+            onClick={handleUploadClick}
+            className="premium-btn"
+          >
+            <Upload size={18} strokeWidth={3} /> Upload File
           </button>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            style={{ display: 'none' }} 
+            onChange={handleFileChange}
+          />
         </div>
       </div>
 
@@ -130,7 +208,7 @@ const Documents: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflow: 'auto', maxHeight: '600px' }} className="custom-scrollbar">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--background)' }}>
@@ -152,16 +230,23 @@ const Documents: React.FC = () => {
                     </div>
                   </td>
                   <td style={{ padding: '16px 24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <User size={14} color="var(--primary)" />
+                    <div 
+                        onClick={() => showClientInfo(doc.client_name)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--brand-blue)' }}
+                    >
+                      <User size={14} />
                       <span style={{ fontSize: '14px', fontWeight: '600' }}>{doc.client_name}</span>
                     </div>
                   </td>
                   <td style={{ padding: '16px 24px' }}>
-                    <span style={{ 
-                        padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '800',
-                        background: 'rgba(37,99,235,0.05)', color: 'var(--primary)', border: '1px solid rgba(37,99,235,0.1)'
-                    }}>
+                    <span 
+                        onClick={() => showClientInfo(doc.client_name)}
+                        style={{ 
+                            padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '800',
+                            background: 'rgba(37,99,235,0.05)', color: 'var(--primary)', border: '1px solid rgba(37,99,235,0.1)',
+                            cursor: 'pointer'
+                        }}
+                    >
                         {doc.category}
                     </span>
                   </td>
@@ -252,11 +337,71 @@ const Documents: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Client Details Modal */}
+      <AnimatePresence>
+        {showClientModal && clientDetails && (
+          <div style={{ 
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', zIndex: 1100, 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+          }}>
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="card" style={{ width: '600px', padding: 0 }}
+            >
+              <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontWeight: '800' }}>Client Statutory Profile</h3>
+                <button onClick={() => setShowClientModal(false)} style={{ background: 'transparent', padding: 4 }}><X size={20} /></button>
+              </div>
+              <div style={{ padding: '32px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
+                    <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '24px', fontWeight: '900' }}>
+                        {clientDetails.name[0]}
+                    </div>
+                    <div>
+                        <h2 style={{ fontSize: '22px', fontWeight: '900' }}>{clientDetails.name}</h2>
+                        <p style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>{clientDetails.entity_type} • {clientDetails.location}</p>
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                    {[
+                        { label: 'GSTIN', value: clientDetails.gstin },
+                        { label: 'PAN', value: clientDetails.pan },
+                        { label: 'TAN', value: clientDetails.tan },
+                        { label: 'CIN / LLPIN', value: clientDetails.cin_llp },
+                        { label: 'Phone', value: clientDetails.phone },
+                        { label: 'Email', value: clientDetails.email }
+                    ].map((item, idx) => (
+                        <div key={idx} style={{ padding: '16px', background: 'var(--background)', borderRadius: '12px' }}>
+                            <p style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>{item.label}</p>
+                            <p style={{ fontWeight: '700' }}>{item.value || 'N/A'}</p>
+                        </div>
+                    ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <style>{`
         .row-hover:hover { background: rgba(37,99,235,0.02) !important; cursor: pointer; transition: 0.2s; }
         .hover-icon:hover { color: var(--primary) !important; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 2s linear infinite; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.05); border-radius: 10px; }
+        th {
+          position: sticky;
+          top: 0;
+          background: var(--background);
+          z-index: 10;
+          text-align: left;
+          font-weight: 800;
+          font-size: 13px;
+          color: var(--text-secondary);
+        }
       `}</style>
     </div>
   );

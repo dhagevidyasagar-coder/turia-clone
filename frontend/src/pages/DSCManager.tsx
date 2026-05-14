@@ -40,7 +40,7 @@ const DSCManager: React.FC = () => {
 
   const fetchDSC = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/dsc');
+      const response = await fetch('http://127.0.0.1:5005/api/dsc');
       const data = await response.json();
       setDscs(data);
       setLoading(false);
@@ -84,7 +84,6 @@ const DSCManager: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
           <h1>DSC Management Hub</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Lifecycle tracking and secure vault for Digital Signature Certificates.</p>
         </div>
         <button onClick={() => setShowAddModal(true)}>
           <Plus size={18} /> Register New DSC

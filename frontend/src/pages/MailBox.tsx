@@ -5,21 +5,11 @@ import {
   Archive, 
   Trash2, 
   Star, 
-  Mail, 
-  Search, 
-  MoreVertical, 
   Plus, 
-  User, 
-  ShieldCheck, 
-  Clock, 
-  FileText,
-  Filter,
-  ArrowRight,
-  RefreshCw,
-  Zap,
-  Tag,
-  X,
-  Paperclip
+  X, 
+  Paperclip,
+  Reply,
+  Forward
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,7 +17,7 @@ interface Email {
   id: number;
   sender: string;
   subject: string;
-  preview: string;
+  body: string;
   time: string;
   isRead: boolean;
   isStarred: boolean;
@@ -42,28 +32,35 @@ const MailBox: React.FC = () => {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCompose, setShowCompose] = useState(false);
-  const [emails, setEmails] = useState<Email[]>([
-    { 
-      id: 1, sender: 'GSTN Portal', subject: 'GSTR-3B Filing Acknowledgement - Apr 2024', 
-      preview: 'Dear Taxpayer, your GSTR-3B for the month of April 2024 has been successfully filed with ARN...', 
-      time: '10:30 AM', isRead: false, isStarred: true, isArchived: false, isDeleted: false, category: 'Statutory' 
-    },
-    { 
-      id: 2, sender: 'California Burrito', subject: 'Inquiry regarding TDS deductions for Q1', 
-      preview: 'Hi Mehul, we noticed some discrepancies in the TDS calculation for our staff payments. Can we sync tomorrow?', 
-      time: '09:15 AM', isRead: true, isStarred: false, isArchived: false, isDeleted: false, category: 'Client' 
-    },
-    { 
-      id: 3, sender: 'Income Tax Department', subject: 'Hearing Notice: Section 143(2) - Assessment Year 2023-24', 
-      preview: 'Notice is hereby given for the hearing scheduled on 25th April... Please submit documents by...', 
-      time: 'Yesterday', isRead: false, isStarred: true, isArchived: false, isDeleted: false, category: 'Statutory' 
-    },
-    { 
-      id: 4, sender: 'System Alert', subject: 'Action Required: Digital Signature Certificate (DSC) Expiry', 
-      preview: 'Your DSC is set to expire in 3 days. Please renew to avoid interruptions in MCA filings.', 
-      time: 'Apr 18', isRead: true, isStarred: false, isArchived: false, isDeleted: false, category: 'Priority' 
+  const [composeData, setComposeData] = useState({ recipient: '', subject: '', message: '' });
+  const [emails, setEmails] = useState<Email[]>([]);
+
+  useEffect(() => {
+    fetchEmails();
+  }, []);
+
+  const fetchEmails = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/emails');
+      const data = await response.json();
+      setEmails(data);
+    } catch (error) {
+      console.error('Error fetching emails:', error);
     }
-  ]);
+  };
+
+  const updateEmailStatus = async (id: number, updates: any) => {
+    try {
+      await fetch(`http://127.0.0.1:5005/api/emails/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      fetchEmails();
+    } catch (error) {
+      console.error('Error updating email:', error);
+    }
+  };
 
   const folders = [
     { id: 'inbox', label: 'Inbox', icon: Inbox },
@@ -91,38 +88,63 @@ const MailBox: React.FC = () => {
     return filtered;
   };
 
-  const toggleStar = (id: number) => {
-    setEmails(emails.map(e => e.id === id ? { ...e, isStarred: !e.isStarred } : e));
+  const toggleStar = (id: number, current: boolean) => {
+    updateEmailStatus(id, { is_starred: !current });
   };
 
   const moveToArchive = (id: number) => {
-    setEmails(emails.map(e => e.id === id ? { ...e, isArchived: true, isDeleted: false } : e));
+    updateEmailStatus(id, { is_archived: true, is_deleted: false });
     setSelectedEmail(null);
   };
 
   const moveToDelete = (id: number) => {
-    setEmails(emails.map(e => e.id === id ? { ...e, isDeleted: true, isArchived: false } : e));
+    updateEmailStatus(id, { is_deleted: true, is_archived: false });
     setSelectedEmail(null);
   };
 
-  const handleCompose = (e: React.FormEvent) => {
+  const handleReply = () => {
+    if (!selectedEmail) return;
+    setComposeData({
+      recipient: selectedEmail.sender,
+      subject: selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`,
+      message: `\n\n\n--- Original Message ---\nFrom: ${selectedEmail.sender}\nDate: ${selectedEmail.time}\n\n${selectedEmail.body}`
+    });
+    setShowCompose(true);
+  };
+
+  const handleForward = () => {
+    if (!selectedEmail) return;
+    setComposeData({
+      recipient: '',
+      subject: selectedEmail.subject.startsWith('Fwd:') ? selectedEmail.subject : `Fwd: ${selectedEmail.subject}`,
+      message: `\n\n\n--- Forwarded Message ---\nFrom: ${selectedEmail.sender}\nDate: ${selectedEmail.time}\n\n${selectedEmail.body}`
+    });
+    setShowCompose(true);
+  };
+
+  const openNewCompose = () => {
+    setComposeData({ recipient: '', subject: '', message: '' });
+    setShowCompose(true);
+  };
+
+  const handleCompose = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newEmail: Email = {
-        id: Date.now(),
-        sender: 'Me (dhagevidyasagarr@gmail.com)',
-        subject: (e.target as any).subject.value,
-        preview: (e.target as any).message.value,
-        time: 'Just now',
-        isRead: true,
-        isStarred: false,
-        isArchived: false,
-        isDeleted: false,
-        isSent: true,
-        category: 'Priority'
-    };
-    setEmails([newEmail, ...emails]);
-    setShowCompose(false);
-    setActiveFolder('sent');
+    const formData = new FormData(e.target as HTMLFormElement);
+
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/emails', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        setShowCompose(false);
+        fetchEmails();
+        setActiveFolder('sent');
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+    }
   };
 
   return (
@@ -130,12 +152,15 @@ const MailBox: React.FC = () => {
       {/* Mailbox Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h1>Work Mail Box</h1>
+          <h1>VA CA firm application</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Account: <span style={{ color: 'var(--text-primary)', fontWeight: '700' }}>dhagevidyasagarr@gmail.com</span></p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button onClick={() => setShowCompose(true)}>
-            <Plus size={18} /> Compose
+          <button 
+            onClick={openNewCompose}
+            className="premium-btn"
+          >
+            <Plus size={18} strokeWidth={3} /> Compose
           </button>
         </div>
       </div>
@@ -194,13 +219,13 @@ const MailBox: React.FC = () => {
                     }}
                     className="email-row"
                   >
-                    <div onClick={(e) => { e.stopPropagation(); toggleStar(email.id); }} style={{ color: email.isStarred ? 'var(--warning)' : 'var(--text-secondary)' }}>
+                    <div onClick={(e) => { e.stopPropagation(); toggleStar(email.id, email.isStarred); }} style={{ color: email.isStarred ? 'var(--warning)' : 'var(--text-secondary)' }}>
                       <Star size={18} fill={email.isStarred ? 'var(--warning)' : 'none'} strokeWidth={email.isStarred ? 0 : 2} />
                     </div>
                     <span style={{ fontWeight: email.isRead ? '500' : '800', fontSize: '15px' }}>{email.sender}</span>
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: email.isRead ? '600' : '800', fontSize: '15px', color: 'var(--text-primary)' }}>{email.subject}</span>
-                      <span style={{ fontSize: '14px', color: 'var(--text-secondary)', marginLeft: '8px' }}> - {email.preview}</span>
+                      <span style={{ fontSize: '14px', color: 'var(--text-secondary)', marginLeft: '8px' }}> - {email.body}</span>
                     </div>
                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{email.time}</span>
                   </div>
@@ -228,10 +253,16 @@ const MailBox: React.FC = () => {
                     </div>
                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700' }}>{selectedEmail.time}</span>
                 </div>
-                <div style={{ fontSize: '16px', lineHeight: '1.8', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-                    {selectedEmail.preview}
-                    {"\n\n"}
-                    This is a professional statutory notification regarding your firm's compliance lifecycle. In the 'Turia UI' interface, we prioritize client communications and statutory headers to keep your practice focused.
+                <div style={{ fontSize: '16px', lineHeight: '1.8', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', marginBottom: '40px' }}>
+                    {selectedEmail.body}
+                </div>
+                <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
+                    <button onClick={handleReply} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '10px', fontWeight: '700', color: 'var(--text-primary)' }} className="hover-action">
+                        <Reply size={18} /> Reply
+                    </button>
+                    <button onClick={handleForward} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '10px', fontWeight: '700', color: 'var(--text-primary)' }} className="hover-action">
+                        <Forward size={18} /> Forward
+                    </button>
                 </div>
               </div>
             </div>
@@ -253,9 +284,19 @@ const MailBox: React.FC = () => {
                     <button onClick={() => setShowCompose(false)} style={{ color: 'white', background: 'rgba(255,255,255,0.2)', padding: '6px', borderRadius: '8px' }}><X size={20} /></button>
                 </div>
                 <form onSubmit={handleCompose} style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '24px', gap: '20px' }}>
-                    <input type="text" placeholder="To: Client or Statutory Portal" style={{ width: '100%', background: 'var(--background)', border: '1px solid var(--border)' }} />
-                    <input name="subject" required type="text" placeholder="Subject Line" style={{ width: '100%', background: 'var(--background)', border: '1px solid var(--border)' }} />
-                    <textarea name="message" required placeholder="Draft your professional communication..." style={{ flex: 1, background: 'var(--background)', border: '1px solid var(--border)', resize: 'none', padding: '16px' }}></textarea>
+                    <input name="recipient" required type="text" placeholder="To: Client or Statutory Portal" defaultValue={composeData.recipient} style={{ width: '100%', background: 'var(--background)', border: '1px solid var(--border)' }} />
+                    <input name="subject" required type="text" placeholder="Subject Line" defaultValue={composeData.subject} style={{ width: '100%', background: 'var(--background)', border: '1px solid var(--border)' }} />
+                    <textarea name="body" required placeholder="Draft your professional communication..." defaultValue={composeData.message} style={{ flex: 1, background: 'var(--background)', border: '1px solid var(--border)', resize: 'none', padding: '16px', borderRadius: '12px' }}></textarea>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <input type="file" name="attachments" multiple style={{ fontSize: '13px' }} />
+                    </div>
+
+                    <div style={{ padding: '12px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
+                        <p style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', margin: 0 }}>
+                            ✨ <strong>Pro-Tip:</strong> Your professional firm signature and statutory disclaimer will be automatically attached to this email.
+                        </p>
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', gap: '16px', color: 'var(--text-secondary)' }}>
                             <button type="button" style={{background: 'transparent', color: 'var(--text-secondary)'}}><Paperclip size={20} /></button>

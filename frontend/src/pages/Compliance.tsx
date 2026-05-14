@@ -15,18 +15,20 @@ import {
   Plus,
   Send,
   MoreVertical,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface DeadlineRecord {
+interface ComplianceRecord {
   id: number;
-  date: string;
-  client: string;
-  gst: 'Filed' | 'Pending' | 'Overdue' | 'N/A';
-  it: 'Filed' | 'Pending' | 'Overdue' | 'N/A';
-  roc: 'Filed' | 'Pending' | 'Overdue' | 'N/A';
-  tds: 'Filed' | 'Pending' | 'Overdue' | 'N/A';
+  title: string;
+  category: string;
+  deadline: string;
+  status: 'Pending' | 'Filed' | 'Overdue';
+  client_name: string;
+  ack_no?: string;
+  last_sync?: string;
 }
 
 interface Reminder {
@@ -39,19 +41,43 @@ interface Reminder {
 const Compliance: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [showReminderForm, setShowReminderForm] = useState(false);
+  const [records, setRecords] = useState<ComplianceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [reminders, setReminders] = useState<Reminder[]>([
     { id: 1, client: 'Reliance Industries', message: 'GSTR-3B Documents Pending', date: '2h ago' },
     { id: 2, client: 'Zomato Operations', message: 'TDS Payment Reminder', date: '5h ago' },
   ]);
 
-  const [records] = useState<DeadlineRecord[]>([
-    { id: 1, date: '20th Apr 2024', client: 'Reliance Industries', gst: 'Pending', it: 'Filed', roc: 'Filed', tds: 'Pending' },
-    { id: 2, date: '11th Apr 2024', client: 'Zomato Operations', gst: 'Filed', it: 'N/A', roc: 'N/A', tds: 'Filed' },
-    { id: 3, date: '30th Sep 2024', client: 'Tata Consultancy', gst: 'Pending', it: 'Overdue', roc: 'Pending', tds: 'N/A' },
-    { id: 4, date: '15th Jul 2024', client: 'Infosys Ltd', gst: 'Filed', it: 'Filed', roc: 'Filed', tds: 'Filed' },
-  ]);
+  const categories = ['All', 'GST', 'TDS', 'Income Tax', 'MCA', 'Payroll'];
 
-  const categories = ['All', 'GST', 'IT', 'ROC', 'TDS'];
+  useEffect(() => {
+    fetchCompliance();
+  }, []);
+
+  const fetchCompliance = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/compliance');
+      const data = await response.json();
+      setRecords(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching compliance:', error);
+      setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await fetch('http://127.0.0.1:5005/api/compliance/sync', { method: 'POST' });
+      await fetchCompliance();
+    } catch (error) {
+      console.error('Sync failed:', error);
+    }
+    setSyncing(false);
+  };
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -62,99 +88,98 @@ const Compliance: React.FC = () => {
     }
   };
 
-  const handleAddReminder = (e: any) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const newRem = {
-        id: Date.now(),
-        client: formData.get('client') as string,
-        message: formData.get('message') as string,
-        date: 'Just now'
-    };
-    setReminders([newRem, ...reminders]);
-    setShowReminderForm(false);
-    alert(`Reminder deployed to ${newRem.client} successfully!`);
-  };
+  const filteredRecords = records.filter(r => 
+    (activeCategory === 'All' || r.category === activeCategory) &&
+    (r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.client_name.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 20px' }}>
       {/* Header Section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px', padding: '0 8px' }}>
         <div>
-          <h1 className="display-serif" style={{ fontSize: '42px', marginBottom: '8px' }}>Statutory Deadlines</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '16px', fontWeight: '600' }}>Precision tracking of client filing status across all statutory pillars.</p>
+          <h1 className="display-serif" style={{ fontSize: '42px', marginBottom: '8px' }}>Statutory Command</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '16px', fontWeight: '600' }}>Live tracking of statutory deliverables synced with government portals.</p>
         </div>
         <div style={{ display: 'flex', gap: '16px' }}>
+          <button 
+            onClick={handleSync} 
+            disabled={syncing}
+            className="card" 
+            style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '700', cursor: syncing ? 'not-allowed' : 'pointer' }}
+          >
+            <RefreshCw size={18} className={syncing ? 'spin' : ''} /> {syncing ? 'Syncing...' : 'Sync with Portal'}
+          </button>
           <button onClick={() => setShowReminderForm(true)} className="premium-btn">
-            <Bell size={20} strokeWidth={3} /> Add Customer Reminder
+            <Bell size={20} strokeWidth={3} /> Send Client Nudge
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', height: 'calc(100vh - 250px)' }}>
-        {/* Main List Section */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Toggles */}
-          <div style={{ display: 'flex', gap: '12px' }}>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                style={{
-                  padding: '10px 24px', borderRadius: '12px', fontSize: '13px', fontWeight: '800',
-                  background: activeCategory === cat ? 'var(--primary)' : 'white',
-                  color: activeCategory === cat ? 'white' : 'var(--text-secondary)',
-                  border: activeCategory === cat ? 'none' : '1px solid var(--border-strong)',
-                  transition: '0.2s'
-                }}
-              >
-                {cat}
-              </button>
-            ))}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px' }}>
+        {/* Main Table Section */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  style={{
+                    padding: '8px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: '700',
+                    background: activeCategory === cat ? 'var(--primary)' : 'transparent',
+                    color: activeCategory === cat ? 'white' : 'var(--text-secondary)',
+                    border: 'none', cursor: 'pointer', transition: '0.2s'
+                  }}
+                >{cat}</button>
+              ))}
+            </div>
+            <div style={{ position: 'relative', width: '280px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <input 
+                    type="text" 
+                    placeholder="Search records..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ width: '100%', padding: '10px 10px 10px 44px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '14px' }} 
+                />
+            </div>
           </div>
 
-          {/* Data Grid */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }} className="data-table">
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-strong)' }}>
-                  <th style={{ padding: '20px 24px' }}>Deadline Date</th>
-                  <th style={{ padding: '20px 24px' }}>Client Entity</th>
-                  <th style={{ padding: '20px 24px' }}>GST</th>
-                  <th style={{ padding: '20px 24px' }}>IT</th>
-                  <th style={{ padding: '20px 24px' }}>ROC</th>
-                  <th style={{ padding: '20px 24px' }}>TDS</th>
-                  <th style={{ padding: '20px 24px' }}>Action</th>
+                <tr style={{ textAlign: 'left', background: 'var(--background)' }}>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Deliverable</th>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Client</th>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Category</th>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Deadline</th>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Status</th>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Ack No.</th>
                 </tr>
               </thead>
               <tbody>
-                {records.map(rec => (
-                  <tr key={rec.id} style={{ borderBottom: '1px solid var(--border-subtle)' }} className="row-hover">
-                    <td style={{ padding: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', fontSize: '14px' }}>
-                            <CalendarIcon size={16} color="var(--text-secondary)" /> {rec.date}
-                        </div>
+                {loading ? (
+                    <tr><td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>Retrieving statutory logs...</td></tr>
+                ) : filteredRecords.map((record) => (
+                  <tr key={record.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
+                    <td style={{ padding: '20px 24px', fontWeight: '800' }}>{record.title}</td>
+                    <td style={{ padding: '20px 24px', color: 'var(--text-primary)', fontWeight: '700' }}>{record.client_name}</td>
+                    <td style={{ padding: '20px 24px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary)', borderRadius: '6px' }}>{record.category}</span>
                     </td>
-                    <td style={{ padding: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Building2 size={18} color="var(--text-secondary)" />
-                            <span style={{ fontWeight: '800', fontSize: '14px' }}>{rec.client}</span>
-                        </div>
+                    <td style={{ padding: '20px 24px', fontWeight: '600', color: 'var(--text-secondary)' }}>{record.deadline}</td>
+                    <td style={{ padding: '20px 24px' }}>
+                      <div style={{ 
+                        ...getStatusStyle(record.status),
+                        padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px'
+                      }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getStatusStyle(record.status).color }}></div>
+                        {record.status}
+                      </div>
                     </td>
-                    <td style={{ padding: '24px' }}>
-                        <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '10px', fontWeight: '900', ...getStatusStyle(rec.gst) }}>{rec.gst}</span>
-                    </td>
-                    <td style={{ padding: '24px' }}>
-                        <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '10px', fontWeight: '900', ...getStatusStyle(rec.it) }}>{rec.it}</span>
-                    </td>
-                    <td style={{ padding: '24px' }}>
-                        <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '10px', fontWeight: '900', ...getStatusStyle(rec.roc) }}>{rec.roc}</span>
-                    </td>
-                    <td style={{ padding: '24px' }}>
-                        <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '10px', fontWeight: '900', ...getStatusStyle(rec.tds) }}>{rec.tds}</span>
-                    </td>
-                    <td style={{ padding: '24px' }}>
-                        <button style={{ background: 'transparent', color: 'var(--text-secondary)' }}><MoreVertical size={18} /></button>
+                    <td style={{ padding: '20px 24px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                        {record.ack_no || '---'}
                     </td>
                   </tr>
                 ))}
@@ -163,82 +188,40 @@ const Compliance: React.FC = () => {
           </div>
         </div>
 
-        {/* Reminders Sidebar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div className="card" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 className="ui-heading" style={{ fontSize: '18px' }}>Active Reminders</h3>
-                    <div style={{ padding: '4px 10px', background: 'var(--brand-subtle)', borderRadius: '20px', fontSize: '11px', fontWeight: '800', color: 'var(--brand-blue)' }}>{reminders.length} ACTIVE</div>
+        {/* Sidebar Insights */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          <div className="card" style={{ padding: '32px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '24px' }}>Nudge Analytics</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {reminders.map(rem => (
+                <div key={rem.id} style={{ display: 'flex', gap: '16px' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Bell size={20} color="var(--primary)" />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '14px', fontWeight: '800', marginBottom: '4px' }}>{rem.client}</p>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{rem.message}</p>
+                    <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: '700' }}>{rem.date.toUpperCase()}</p>
+                  </div>
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {reminders.map(rem => (
-                        <div key={rem.id} style={{ padding: '20px', background: 'var(--background)', borderRadius: '16px', border: '1px solid var(--border-strong)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                <p style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{rem.client}</p>
-                                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600' }}>{rem.date}</p>
-                            </div>
-                            <p style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px' }}>{rem.message}</p>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)', fontSize: '12px', fontWeight: '700' }}>
-                                <CheckCircle2 size={14} /> Sent via WhatsApp
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                <AnimatePresence>
-                    {showReminderForm && (
-                        <motion.form 
-                            initial={{ opacity: 0, y: 20 }} 
-                            animate={{ opacity: 1, y: 0 }} 
-                            exit={{ opacity: 0, y: 20 }}
-                            onSubmit={handleAddReminder}
-                            style={{ 
-                                marginTop: '24px', padding: '24px', background: 'white', borderRadius: '20px', 
-                                border: '1px solid var(--brand-blue)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' 
-                            }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                                <h4 style={{ fontWeight: '800', fontSize: '15px' }}>New Reminder</h4>
-                                <button type="button" onClick={() => setShowReminderForm(false)} style={{ background: 'transparent', padding: 0 }}><X size={16} /></button>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', marginBottom: '6px', color: 'var(--text-secondary)' }}>CLIENT</label>
-                                    <select name="client" style={{ width: '100%', background: 'var(--background)' }}>
-                                        <option>Reliance Industries</option>
-                                        <option>Infosys Ltd</option>
-                                        <option>Tata Consultancy</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', marginBottom: '6px', color: 'var(--text-secondary)' }}>MESSAGE</label>
-                                    <textarea name="message" placeholder="e.g. Please share GSTR-1 files..." style={{ width: '100%', background: 'var(--background)', minHeight: '80px' }} />
-                                </div>
-                                <button className="premium-btn" style={{ width: '100%', justifyContent: 'center' }}>
-                                    <Send size={18} /> Deploy Reminder
-                                </button>
-                            </div>
-                        </motion.form>
-                    )}
-                </AnimatePresence>
+              ))}
             </div>
+          </div>
 
-            <div className="card" style={{ padding: '24px', background: 'var(--brand-blue)', color: 'white' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                    <Zap size={20} />
-                    <h4 style={{ fontWeight: '800', fontSize: '15px' }}>Workflow Auto-Agent</h4>
-                </div>
-                <p style={{ fontSize: '13px', lineHeight: '1.6', fontWeight: '500', opacity: 0.9 }}>
-                    Automated reminders are scheduled for all 'Pending' GST filings tomorrow morning at 09:00 AM.
-                </p>
-            </div>
+          <div className="card" style={{ padding: '32px', background: 'linear-gradient(135deg, var(--primary), var(--accent))', color: 'white', border: 'none' }}>
+            <Zap size={32} style={{ marginBottom: '20px' }} />
+            <h3 style={{ fontSize: '20px', fontWeight: '800', marginBottom: '12px' }}>Auto-Sync Active</h3>
+            <p style={{ fontSize: '14px', lineHeight: '1.6', fontWeight: '500', opacity: 0.9 }}>
+              The Turia Bot is currently syncing with the GSTN portal for Reliance Industries. Expected completion: 2 mins.
+            </p>
+          </div>
         </div>
       </div>
 
       <style>{`
-        .row-hover:hover { background: rgba(44, 127, 255, 0.02) !important; cursor: pointer; }
-        .data-table th { background: var(--background); color: var(--text-secondary); text-transform: uppercase; font-size: 11px; font-weight: 900; letter-spacing: 1px; }
+        .table-row:hover { background: rgba(255, 255, 255, 0.02); }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );

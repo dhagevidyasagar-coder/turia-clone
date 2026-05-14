@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageSquare, 
   Search, 
@@ -8,92 +8,207 @@ import {
   Video, 
   Paperclip, 
   Smile,
-  CheckCheck
+  CheckCheck,
+  Zap
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const chats = [
-  { id: 1, name: 'Anil Agarwal', company: 'Reliance', lastMessage: 'Please share the GST filed acknowledgment.', time: '10:30 AM', unread: 2, avatar: 'A' },
-  { id: 2, name: 'Sanjay Gupta', company: 'Tata Projects', lastMessage: 'DSC is expiring next week.', time: '09:45 AM', unread: 0, avatar: 'S' },
-  { id: 3, name: 'Priya Sharma', company: 'Zomato', lastMessage: 'Payment link sent for Q4 audit fee.', time: 'Yesterday', unread: 0, avatar: 'P' },
-  { id: 4, name: 'Karan Mehra', company: 'HDFC', lastMessage: 'Documents uploaded to portal.', time: 'Yesterday', unread: 0, avatar: 'K' },
-];
+interface Chat {
+  id: number;
+  name: string;
+  company: string;
+  lastMessage: string;
+  time: string;
+  unread: number;
+  avatar: string;
+  status: string;
+}
 
-const messages = [
-  { id: 1, sender: 'Priya', text: 'Hello, need help with the TDS notice we received today.', time: '11:15 AM', type: 'received' },
-  { id: 2, sender: 'System', text: 'Automated Response: Hi Priya, we have received the notice. Our team will review it shortly.', time: '11:16 AM', type: 'system' },
-  { id: 3, sender: 'Vidyasagar', text: 'Hi Priya, I am looking into it. Please share the scanned copy of the notice.', time: '11:20 AM', type: 'sent' },
-];
+interface Message {
+  id: number;
+  sender: string;
+  text: string;
+  time: string;
+  type: 'sent' | 'received' | 'system';
+}
 
 const Communication: React.FC = () => {
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (selectedChat) {
+      fetchMessages();
+      const interval = setInterval(fetchMessages, 5000); // Poll for new messages
+      return () => clearInterval(interval);
+    }
+  }, [selectedChat?.id]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const fetchInitialData = async () => {
+    try {
+      const clientRes = await fetch('http://127.0.0.1:5005/api/clients');
+      const clients = await clientRes.json();
+      
+      const formattedChats: Chat[] = clients.map((c: any) => ({
+        id: c.id,
+        name: c.auditor || 'Client Contact',
+        company: c.name,
+        lastMessage: 'Tap to start conversation',
+        time: 'Now',
+        unread: 0,
+        avatar: c.name[0],
+        status: c.status
+      }));
+
+      setChats(formattedChats);
+      if (formattedChats.length > 0 && !selectedChat) {
+        setSelectedChat(formattedChats[0]);
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching chats:', error);
+      setLoading(false);
+    }
+  };
+
+  const fetchMessages = async () => {
+    if (!selectedChat) return;
+    try {
+      const response = await fetch(`http://127.0.0.1:5005/api/messages?client_id=${selectedChat.id}`);
+      const data = await response.json();
+      
+      const formattedMsgs: Message[] = data.map((m: any) => ({
+        id: m.id,
+        sender: m.sender,
+        text: m.text,
+        time: m.timestamp,
+        type: m.type as any
+      }));
+
+      // Add a system welcome message if no messages exist
+      if (formattedMsgs.length === 0) {
+        formattedMsgs.push({
+          id: 0,
+          sender: 'System',
+          text: `WhatsApp Business API active for ${selectedChat.company}. All communications are encrypted.`,
+          time: 'System',
+          type: 'system'
+        });
+      }
+
+      setMessages(formattedMsgs);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedChat) return;
+
+    const msgData = {
+      client_id: selectedChat.id,
+      text: newMessage,
+      sender: 'Vidyasagar',
+      type: 'sent'
+    };
+
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msgData)
+      });
+
+      if (response.ok) {
+        setNewMessage('');
+        fetchMessages();
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
   return (
-    <div className="animate-fade-in" style={{ height: 'calc(100vh - var(--header-height) - 100px)', display: 'flex', gap: '24px' }}>
+    <div className="animate-fade-in" style={{ height: 'calc(100vh - 200px)', display: 'flex', gap: '24px' }}>
       {/* Chat List */}
-      <div className="glass-panel" style={{ width: '380px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid var(--glass-border)' }}>
-          <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Shared Team Inbox</h2>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px', 
-            background: 'rgba(255,255,255,0.05)', 
-            padding: '10px 16px', 
-            borderRadius: '12px',
-            border: '1px solid var(--glass-border)'
-          }}>
-            <Search size={16} color="var(--text-secondary)" />
-            <input type="text" placeholder="Search chats..." style={{ background: 'transparent', border: 'none', color: 'white', outline: 'none', width: '100%', fontSize: '14px' }} />
+      <div className="card" style={{ width: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
+        <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: 'rgba(255, 255, 255, 0.02)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '800' }}>WhatsApp Inbox</h2>
+            <div style={{ padding: '4px 12px', background: 'var(--success)15', color: 'var(--success)', borderRadius: '20px', fontSize: '11px', fontWeight: '800' }}>ONLINE</div>
+          </div>
+          <div style={{ position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+            <input 
+              type="text" 
+              placeholder="Search clients..." 
+              style={{ width: '100%', padding: '12px 12px 12px 48px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }} 
+            />
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {chats.map((chat) => (
-            <div key={chat.id} style={{ 
-              padding: '20px 24px', 
-              display: 'flex', 
-              gap: '12px', 
-              cursor: 'pointer',
-              background: chat.id === 1 ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-              borderBottom: '1px solid rgba(255,255,255,0.02)'
-            }}>
+        <div style={{ flex: 1, overflowY: 'auto' }} className="hide-scrollbar">
+          {loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Decrypting messages...</div>
+          ) : chats.map((chat) => (
+            <div 
+              key={chat.id} 
+              onClick={() => setSelectedChat(chat)}
+              style={{ 
+                padding: '20px 24px', 
+                display: 'flex', 
+                gap: '16px', 
+                cursor: 'pointer',
+                background: selectedChat?.id === chat.id ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                borderLeft: `4px solid ${selectedChat?.id === chat.id ? 'var(--primary)' : 'transparent'}`,
+                transition: '0.2s',
+                borderBottom: '1px solid var(--border)'
+              }}
+              className="chat-row-hover"
+            >
               <div style={{ 
-                width: '48px', 
-                height: '48px', 
-                borderRadius: '14px', 
+                width: '52px', 
+                height: '52px', 
+                borderRadius: '16px', 
                 background: 'linear-gradient(135deg, var(--primary), var(--accent))',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 'bold',
-                flexShrink: 0
+                fontWeight: '800',
+                fontSize: '18px',
+                color: 'white',
+                flexShrink: 0,
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)'
               }}>
                 {chat.avatar}
               </div>
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <h4 style={{ fontSize: '15px', fontWeight: '600' }}>{chat.name}</h4>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{chat.time}</span>
+                  <h4 style={{ fontSize: '15px', fontWeight: '800' }}>{chat.company}</h4>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600' }}>{chat.time}</span>
                 </div>
-                <p style={{ fontSize: '12px', color: 'var(--primary)', marginBottom: '4px' }}>{chat.company}</p>
+                <p style={{ fontSize: '12px', color: 'var(--primary)', marginBottom: '4px', fontWeight: '700' }}>{chat.name}</p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '500' }}>
                     {chat.lastMessage}
                   </p>
-                  {chat.unread > 0 && (
-                    <span style={{ 
-                      background: 'var(--primary)', 
-                      color: 'white', 
-                      fontSize: '10px', 
-                      fontWeight: 'bold', 
-                      width: '18px', 
-                      height: '18px', 
-                      borderRadius: '50%', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center' 
-                    }}>
-                      {chat.unread}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -102,89 +217,132 @@ const Communication: React.FC = () => {
       </div>
 
       {/* Chat Window */}
-      <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '20px 32px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ 
-              width: '44px', 
-              height: '44px', 
-              borderRadius: '12px', 
-              background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold'
-            }}>A</div>
-            <div>
-              <h3 style={{ fontSize: '17px' }}>Anil Agarwal</h3>
-              <p style={{ fontSize: '12px', color: 'var(--success)' }}>
-                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', marginRight: '6px' }}></span>
-                WhatsApp Business API Active
-              </p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="glass-card" style={{ padding: '10px' }}><Phone size={18} /></button>
-            <button className="glass-card" style={{ padding: '10px' }}><Video size={18} /></button>
-            <button className="glass-card" style={{ padding: '10px' }}><MoreVertical size={18} /></button>
-          </div>
-        </div>
-
-        <div style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {messages.map((msg) => (
-            <div key={msg.id} style={{ 
-              alignSelf: msg.type === 'sent' ? 'flex-end' : 'flex-start',
-              maxWidth: '70%'
-            }}>
-              <div style={{ 
-                padding: '12px 16px', 
-                borderRadius: msg.type === 'sent' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                background: msg.type === 'sent' ? 'var(--primary)' : msg.type === 'system' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.03)',
-                border: msg.type === 'system' ? '1px dashed rgba(255,255,255,0.2)' : 'none',
-                color: 'white',
-              }}>
-                <p style={{ fontSize: '14px' }}>{msg.text}</p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                  <span style={{ fontSize: '10px', opacity: 0.7 }}>{msg.time}</span>
-                  {msg.type === 'sent' && <CheckCheck size={14} opacity={0.7} />}
+      <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
+        {selectedChat ? (
+          <>
+            <div style={{ padding: '20px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 255, 255, 0.02)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ 
+                  width: '48px', 
+                  height: '48px', 
+                  borderRadius: '14px', 
+                  background: 'linear-gradient(135deg, var(--primary), var(--accent))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: '800',
+                  color: 'white'
+                }}>{selectedChat.avatar}</div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '800' }}>{selectedChat.company}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 10px var(--success)' }}></div>
+                    <p style={{ fontSize: '12px', color: 'var(--success)', fontWeight: '700' }}>
+                      WhatsApp Business API Active
+                    </p>
+                  </div>
                 </div>
               </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button style={{ padding: '10px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}><Phone size={20} /></button>
+                <button style={{ padding: '10px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}><Video size={20} /></button>
+                <button style={{ padding: '10px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}><MoreVertical size={20} /></button>
+              </div>
             </div>
-          ))}
-        </div>
 
-        <div style={{ padding: '24px 32px', borderTop: '1px solid var(--glass-border)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <button style={{ color: 'var(--text-secondary)' }}><Paperclip size={20} /></button>
-          <div style={{ 
-            flex: 1, 
-            background: 'rgba(255,255,255,0.05)', 
-            borderRadius: '12px', 
-            padding: '12px 20px',
-            border: '1px solid var(--glass-border)',
-            display: 'flex',
-            alignItems: 'center'
-          }}>
-            <input 
-              type="text" 
-              placeholder="Type your message or use templates (Shift + /)..." 
-              style={{ background: 'transparent', border: 'none', color: 'white', outline: 'none', width: '100%', fontSize: '14px' }} 
-            />
-            <button style={{ color: 'var(--text-secondary)' }}><Smile size={20} /></button>
+            <div style={{ flex: 1, padding: '32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }} className="hide-scrollbar">
+              {messages.map((msg, index) => (
+                <div key={index} style={{ 
+                  alignSelf: msg.type === 'sent' ? 'flex-end' : (msg.type === 'system' ? 'center' : 'flex-start'),
+                  maxWidth: msg.type === 'system' ? '100%' : '70%'
+                }}>
+                  {msg.type === 'system' ? (
+                    <div style={{ padding: '8px 24px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px dashed var(--border)', fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700', textAlign: 'center' }}>
+                      <Zap size={14} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+                      {msg.text}
+                    </div>
+                  ) : (
+                    <motion.div 
+                      initial={{ scale: 0.9, opacity: 0, y: 10 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      style={{ 
+                        padding: '16px 20px', 
+                        borderRadius: msg.type === 'sent' ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                        background: msg.type === 'sent' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
+                        boxShadow: msg.type === 'sent' ? '0 10px 20px rgba(99, 102, 241, 0.2)' : 'none',
+                        color: 'white',
+                        border: msg.type === 'sent' ? 'none' : '1px solid var(--border)'
+                      }}>
+                      <p style={{ fontSize: '15px', lineHeight: '1.5', fontWeight: '500' }}>{msg.text}</p>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+                        <span style={{ fontSize: '10px', opacity: 0.7, fontWeight: '700' }}>{msg.time}</span>
+                        {msg.type === 'sent' && <CheckCheck size={14} opacity={0.7} />}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div style={{ padding: '32px', borderTop: '1px solid var(--border)', background: 'rgba(255, 255, 255, 0.01)' }}>
+              <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <button type="button" style={{ color: 'var(--text-secondary)', background: 'transparent' }}><Paperclip size={22} /></button>
+                <div style={{ 
+                  flex: 1, 
+                  background: 'var(--background)', 
+                  borderRadius: '16px', 
+                  padding: '4px 8px 4px 20px',
+                  border: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <input 
+                    type="text" 
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type your message to client..." 
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%', padding: '12px 0', fontSize: '15px', fontWeight: '500' }} 
+                  />
+                  <button type="button" style={{ color: 'var(--text-secondary)', background: 'transparent' }}><Smile size={22} /></button>
+                </div>
+                <button type="submit" style={{ 
+                  width: '52px', 
+                  height: '52px', 
+                  borderRadius: '16px', 
+                  background: 'var(--primary)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)',
+                  transition: '0.2s'
+                }} className="send-btn">
+                  <Send size={22} color="white" />
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+            <MessageSquare size={64} opacity={0.1} style={{ marginBottom: '24px' }} />
+            <h3 style={{ fontSize: '20px', fontWeight: '800' }}>Select a client conversation</h3>
+            <p style={{ fontSize: '14px' }}>Unified firm communication via WhatsApp API</p>
           </div>
-          <button style={{ 
-            width: '44px', 
-            height: '44px', 
-            borderRadius: '12px', 
-            background: 'var(--primary)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)'
-          }}>
-            <Send size={20} />
-          </button>
-        </div>
+        )}
       </div>
+
+      <style>{`
+        .chat-row-hover:hover {
+          background: rgba(255, 255, 255, 0.02) !important;
+        }
+        .send-btn:hover {
+          transform: translateY(-2px);
+          filter: brightness(1.1);
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 };

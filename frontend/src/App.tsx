@@ -4,13 +4,9 @@ import Clients from './pages/Clients';
 import Tasks from './pages/Tasks';
 import Communication from './pages/Communication';
 import Billing from './pages/Billing';
-import ComplianceCalendar from './pages/ComplianceCalendar';
-import CalendarView from './pages/CalendarView';
 import MailBox from './pages/MailBox';
 import Documents from './pages/Documents';
 import DSCManager from './pages/DSCManager';
-import ClientPortal from './pages/ClientPortal';
-import Leads from './pages/Leads';
 import Notices from './pages/Notices';
 import Team from './pages/Team';
 import LoginPage from './pages/LoginPage';
@@ -49,22 +45,51 @@ const chartData = [
   { name: 'Jun', revenue: 7400, tasks: 310 },
 ];
 
-const dashboardStats = [
-  { label: 'Total Revenue', value: '₹14.2L', change: '+12.5%', icon: DollarSign, color: 'var(--primary)' },
-  { label: 'Active Tasks', value: '452', change: '+5.2%', icon: Briefcase, color: 'var(--warning)' },
-  { label: 'Filed Today', value: '18', change: '+8%', icon: CheckCircle2, color: 'var(--success)' },
-  { label: 'Compliance Index', value: '94.2%', change: '+1.2%', icon: TrendingUp, color: 'var(--accent)' },
-];
-
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [orgName, setOrgName] = useState('Turia Practice Solutions');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'Compliance Warning', message: 'GSTR-3B for Reliance is overdue.', type: 'Overdue', timestamp: '10:30 AM', is_read: false },
-    { id: 2, title: 'New Lead Captured', message: 'Inquiry from Zomato Ops.', type: 'Nudge', timestamp: '11:15 AM', is_read: false }
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  const [dashboardStats, setDashboardStats] = useState([
+    { label: 'Total Clients', value: '...', change: '+12.5%', icon: Building2, color: 'var(--primary)' },
+    { label: 'Active Tasks', value: '...', change: '+5.2%', icon: Briefcase, color: 'var(--warning)' },
+    { label: 'Filed Today', value: '18', change: '+8%', icon: CheckCircle2, color: 'var(--success)' },
+    { label: 'Compliance Index', value: '94.2%', change: '+1.2%', icon: TrendingUp, color: 'var(--accent)' },
   ]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchDashboardStats();
+      fetchNotifications();
+    }
+  }, [isAuthenticated]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/notifications');
+      const data = await response.json();
+      setNotifications(data);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/stats');
+      const data = await response.json();
+      setDashboardStats([
+        { label: 'Total Clients', value: data.total_clients.toString(), change: '+12.5%', icon: Building2, color: 'var(--primary)' },
+        { label: 'Active Tasks', value: data.active_tasks.toString(), change: '+5.2%', icon: Briefcase, color: 'var(--warning)' },
+        { label: 'Filed Today', value: '18', change: '+8%', icon: CheckCircle2, color: 'var(--success)' },
+        { label: 'Pending Compliance', value: data.pending_compliance.toString(), change: 'Critical', icon: TrendingUp, color: 'var(--danger)' },
+      ]);
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
 
   const handleLogin = (name: string) => {
     setOrgName(name);
@@ -147,15 +172,9 @@ function App() {
       case 'dashboard': return renderDashboard();
       case 'clients':
       case 'clients:all_clients': return <Clients />;
-      case 'clients:leads': return <Leads />;
-      case 'clients:client_portal': return <ClientPortal />;
       case 'clients:dsc_manager': return <DSCManager />;
       case 'tasks':
-      case 'tasks:my_tasks':
       case 'tasks:team_tasks': return <Tasks />;
-      case 'compliance':
-      case 'compliance:deadlines': return <ComplianceCalendar />;
-      case 'compliance:calendar': return <CalendarView />;
       case 'notices': return <Notices />;
       case 'documents': return <Documents />;
       case 'team': return <Team />;
@@ -182,7 +201,15 @@ function App() {
     <div className="app-container" style={{ display: 'flex', minHeight: '100vh', background: 'var(--app-bg)' }}>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
-      <main style={{ marginLeft: 'var(--sidebar-width)', flex: 1, padding: '40px 60px' }}>
+      <main style={{ 
+        marginLeft: 'var(--sidebar-width)', 
+        flex: 1, 
+        padding: '40px 60px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}>
+        <div style={{ width: '100%', maxWidth: '1400px' }}>
         {/* Top Navigation Bar */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '48px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -242,6 +269,7 @@ function App() {
         {/* Dynamic Content View */}
         <div style={{ minHeight: 'calc(100vh - 200px)' }}>
           {renderContent()}
+        </div>
         </div>
       </main>
 

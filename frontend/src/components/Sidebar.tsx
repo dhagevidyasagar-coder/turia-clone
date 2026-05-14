@@ -3,12 +3,9 @@ import {
   LayoutDashboard, 
   Users, 
   CheckSquare, 
-  Calendar, 
   MessageSquare, 
-  Inbox, 
   FileText, 
   Settings,
-  ShieldCheck,
   Zap,
   CreditCard,
   AlertCircle,
@@ -23,9 +20,8 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'clients', label: 'Clients', icon: Users, subItems: ['All Clients', 'Leads', 'Client Portal', 'DSC Manager'] },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare, subItems: ['My Tasks', 'Team Tasks', 'Templates'] },
-    { id: 'compliance', label: 'Compliance', icon: ShieldCheck, subItems: ['Deadlines', 'Calendar'] },
+    { id: 'clients', label: 'Clients', icon: Users, subItems: ['All Clients', 'DSC Manager'] },
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare, subItems: ['Team Tasks', 'Templates'] },
     { id: 'notices', label: 'Notices', icon: AlertCircle },
     { id: 'communications', label: 'Inbox', icon: MessageSquare, subItems: ['Mailbox', 'WhatsApp'] },
     { id: 'documents', label: 'Documents', icon: FileText },
@@ -74,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
           fontFamily: 'var(--font-display)',
           letterSpacing: '-1px',
           color: 'white'
-        }}>Turia <span style={{ color: 'var(--brand-blue)' }}>Practice</span></span>
+        }}>VA <span style={{ color: 'var(--brand-blue)' }}>CA firm application</span></span>
       </div>
 
       <nav style={{ flex: 1, overflowY: 'auto' }} className="hide-scrollbar">

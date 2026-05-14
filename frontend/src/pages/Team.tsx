@@ -106,6 +106,18 @@ const Team: React.FC = () => {
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700' }}>Current Billing cycle (Apr)</p>
         </div>
+        <div className="card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Shield size={24} color="#10b981" />
+                </div>
+                <div>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Office Assets</p>
+                    <h3 style={{ fontSize: '24px', fontWeight: '800' }}>128 Items</h3>
+                </div>
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700' }}>98.2% Maintenance Uptime</p>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, borderRadius: '20px', overflow: 'hidden' }}>
@@ -122,7 +134,7 @@ const Team: React.FC = () => {
             </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflow: 'auto', maxHeight: '600px' }} className="custom-scrollbar">
             <table style={{ width: '100%', minWidth: '1000px' }}>
                 <thead>
                     <tr>
@@ -190,6 +202,33 @@ const Team: React.FC = () => {
             </table>
         </div>
       </div>
+      <style>{`
+        th {
+          position: sticky;
+          top: 0;
+          background: var(--surface);
+          z-index: 10;
+          text-align: left;
+          font-size: 11px;
+          font-weight: 800;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 16px 24px;
+          border-bottom: 1px solid var(--border);
+        }
+        td {
+          padding: 16px 24px;
+          border-bottom: 1px solid var(--border);
+          vertical-align: middle;
+        }
+        .row-hover:hover {
+          background: rgba(255, 255, 255, 0.02);
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.05); border-radius: 10px; }
+      `}</style>
     </div>
   );
 };

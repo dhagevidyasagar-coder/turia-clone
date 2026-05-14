@@ -20,7 +20,9 @@ import {
   CheckSquare,
   FileText,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -36,18 +38,36 @@ interface Task {
 }
 
 const Tasks: React.FC = () => {
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, title: 'TDS Quarterly Return', client: 'Reliance Industries', category: 'TDS / TCS', priority: 'High', deadline: '31st May', assignee: 'Sarah', status: 'To Do' },
-    { id: 2, title: 'GST-3B Monthly Filing', client: 'Zomato Operations', category: 'GST', priority: 'High', deadline: '20th Apr', assignee: 'Mehul', status: 'In Progress' },
-    { id: 3, title: 'MCA Annual Filing', client: 'Tata Consultancy', category: 'MCA', priority: 'Critical', deadline: '30th Oct', assignee: 'Rahul', status: 'To Do' },
-    { id: 4, title: 'Advance Tax Payment', client: 'Infosys Ltd', category: 'Income tax', priority: 'Medium', deadline: '15th Jun', assignee: 'Priya', status: 'To Do' },
-  ]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'board' | 'list'>('list');
   const [activeCategory, setActiveCategory] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const categories = ['All', 'GST', 'MCA', 'TDS / TCS', 'Income tax', 'Audit', 'Compliance'];
+  const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchTasks();
+    // Close dropdown on click outside
+    const handleClickOutside = () => setActiveDropdownId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5005/api/tasks');
+      const data = await response.json();
+      setTasks(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setLoading(false);
+    }
+  };
+
+  const categories = ['All', 'GST', 'MCA', 'TDS', 'Income Tax', 'Audit', 'Payroll'];
   const statusColumns: Task['status'][] = ['To Do', 'In Progress', 'Completed'];
 
   const getPriorityBadge = (priority: string) => {
@@ -69,7 +89,7 @@ const Tasks: React.FC = () => {
 
   const filteredTasks = tasks.filter(t => 
     (activeCategory === 'All' || t.category === activeCategory) &&
-    (t.title.toLowerCase().includes(searchTerm.toLowerCase()) || t.client?.toLowerCase().includes(searchTerm.toLowerCase()))
+    (t.title.toLowerCase().includes(searchTerm.toLowerCase()) || (t.client || '').toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -78,7 +98,6 @@ const Tasks: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px', padding: '0 8px' }}>
         <div>
           <h1 className="display-serif" style={{ fontSize: '42px', marginBottom: '8px' }}>Firm Workflow</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '16px', fontWeight: '600' }}>Manage statutory deliverables and practitioner assignments.</p>
         </div>
         <button className="premium-btn" onClick={() => setShowAddModal(true)}>
           <Plus size={20} strokeWidth={3} /> Provision New Task
@@ -119,16 +138,7 @@ const Tasks: React.FC = () => {
                     style={{ paddingLeft: '48px', width: '280px' }} 
                 />
             </div>
-            <div style={{ display: 'flex', background: 'var(--background)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-strong)' }}>
-                <button 
-                  onClick={() => setViewMode('board')}
-                  style={{ padding: '8px', background: viewMode === 'board' ? 'white' : 'transparent', borderRadius: '6px', color: viewMode === 'board' ? 'var(--brand-blue)' : 'var(--text-secondary)', boxShadow: viewMode === 'board' ? 'var(--shadow-sm)' : 'none' }}
-                ><LayoutGrid size={18} /></button>
-                <button 
-                  onClick={() => setViewMode('list')}
-                  style={{ padding: '8px', background: viewMode === 'list' ? 'white' : 'transparent', borderRadius: '6px', color: viewMode === 'list' ? 'var(--brand-blue)' : 'var(--text-secondary)', boxShadow: viewMode === 'list' ? 'var(--shadow-sm)' : 'none' }}
-                ><List size={18} /></button>
-            </div>
+
         </div>
       </div>
 
@@ -151,7 +161,12 @@ const Tasks: React.FC = () => {
       </div>
 
       {/* Main Content View */}
-      {viewMode === 'board' ? (
+      {loading ? (
+        <div style={{ padding: '100px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+           <RefreshCw size={48} className="spin" style={{ marginBottom: '24px', opacity: 0.2 }} />
+           <p style={{ fontWeight: '700', letterSpacing: '1px' }}>SYNCHRONIZING WORKFLOW...</p>
+        </div>
+      ) : viewMode === 'board' ? (
         <div style={{ display: 'flex', gap: '32px', overflowX: 'auto', paddingBottom: '32px' }} className="hide-scrollbar">
           {statusColumns.map(status => (
             <div key={status} style={{ minWidth: '360px', width: '360px' }}>
@@ -165,9 +180,34 @@ const Tasks: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {filteredTasks.filter(t => t.status === status).map(task => (
                   <div key={task.id} className="card" style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', position: 'relative' }}>
                       <span className={`badge ${getPriorityBadge(task.priority)}`} style={{ fontSize: '10px', fontWeight: '900', padding: '4px 10px', borderRadius: '6px' }}>{task.priority.toUpperCase()}</span>
-                      <MoreVertical size={16} color="var(--text-secondary)" />
+                      <button 
+                        className={`hover-action ${activeDropdownId === task.id ? 'active-dot' : ''}`}
+                        style={{ background: 'transparent', padding: '4px', borderRadius: '6px', color: 'var(--text-secondary)' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveDropdownId(activeDropdownId === task.id ? null : task.id);
+                        }}
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                      <AnimatePresence>
+                        {activeDropdownId === task.id && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="dropdown-menu"
+                            style={{ right: 0, top: '100%', marginTop: '4px' }}
+                          >
+                            <div className="dropdown-item"><FileText size={14} /> Task Details</div>
+                            <div className="dropdown-item"><User size={14} /> Reassign</div>
+                            <div className="dropdown-divider"></div>
+                            <div className="dropdown-item" style={{ color: '#ef4444' }}><Trash2 size={14} /> Delete Task</div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                     <h4 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '12px' }}>{task.title}</h4>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700' }}>
@@ -176,8 +216,8 @@ const Tasks: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900', border: '1px solid var(--border-strong)' }}>{task.assignee[0]}</div>
-                            <span style={{ fontSize: '12px', fontWeight: '700' }}>{task.assignee}</span>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900', border: '1px solid var(--border-strong)' }}>{(task.assignee || 'U')[0]}</div>
+                            <span style={{ fontSize: '12px', fontWeight: '700' }}>{task.assignee || 'Unassigned'}</span>
                         </div>
                         <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowRight size={16} color="var(--brand-blue)" /></div>
                     </div>
@@ -188,62 +228,103 @@ const Tasks: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="card" style={{ overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }} className="data-table">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-strong)' }}>
-                <th style={{ padding: '16px 24px' }}>Task Description</th>
-                <th style={{ padding: '16px 24px' }}>Client</th>
-                <th style={{ padding: '16px 24px' }}>Category</th>
-                <th style={{ padding: '16px 24px' }}>Priority</th>
-                <th style={{ padding: '16px 24px' }}>Deadline</th>
-                <th style={{ padding: '16px 24px' }}>Assignee</th>
-                <th style={{ padding: '16px 24px' }}>Status</th>
-                <th style={{ padding: '16px 24px' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTasks.map(task => (
-                <tr key={task.id} style={{ borderBottom: '1px solid var(--border-subtle)' }} className="row-hover">
-                  <td style={{ padding: '20px 24px' }}>
-                    <p style={{ fontWeight: '800', fontSize: '14px' }}>{task.title}</p>
-                  </td>
-                  <td style={{ padding: '20px 24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '13px' }}>
-                        <Building2 size={14} color="var(--text-secondary)" /> {task.client}
-                    </div>
-                  </td>
-                  <td style={{ padding: '20px 24px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>{task.category}</span>
-                  </td>
-                  <td style={{ padding: '20px 24px' }}>
-                    <span className={`badge ${getPriorityBadge(task.priority)}`} style={{ fontSize: '10px', fontWeight: '900', padding: '4px 10px', borderRadius: '6px' }}>{task.priority.toUpperCase()}</span>
-                  </td>
-                  <td style={{ padding: '20px 24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>
-                        <Calendar size={14} /> {task.deadline}
-                    </div>
-                  </td>
-                  <td style={{ padding: '20px 24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900', border: '1px solid var(--border-strong)' }}>{task.assignee[0]}</div>
-                        <span style={{ fontSize: '13px', fontWeight: '700' }}>{task.assignee}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '20px 24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusColor(task.status) }} />
-                        <span style={{ fontSize: '13px', fontWeight: '800', color: getStatusColor(task.status) }}>{task.status}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '20px 24px' }}>
-                    <button style={{ background: 'transparent', color: 'var(--text-secondary)' }}><MoreVertical size={18} /></button>
-                  </td>
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-strong)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface)' }}>
+            <div>
+              <h3 style={{ margin: 0, fontWeight: '800', fontSize: '18px' }}>Team Task Repository</h3>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '4px' }}>Consolidated view of all practitioner deliverables.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', background: 'var(--background)', padding: '4px 10px', borderRadius: '6px' }}>
+                {filteredTasks.length} TOTAL TASKS
+              </span>
+            </div>
+          </div>
+          <div style={{ maxHeight: '480px', overflowY: 'auto', overflowX: 'auto', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }} className="internal-scrollbar">
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', minWidth: '1100px' }} className="data-table">
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface)' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-strong)' }}>
+                  <th style={{ padding: '16px 24px', background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Task Description</th>
+                  <th style={{ padding: '16px 24px', background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client</th>
+                  <th style={{ padding: '16px 24px', background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</th>
+                  <th style={{ padding: '16px 24px', background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Priority</th>
+                  <th style={{ padding: '16px 24px', background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deadline</th>
+                  <th style={{ padding: '16px 24px', background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assignee</th>
+                  <th style={{ padding: '16px 24px', background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                  <th style={{ padding: '16px 24px', background: 'var(--background)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredTasks.map(task => (
+                  <tr key={task.id} style={{ borderBottom: '1px solid var(--border-subtle)' }} className="row-hover">
+                    <td style={{ padding: '20px 24px' }}>
+                      <p style={{ fontWeight: '800', fontSize: '14px' }}>{task.title}</p>
+                    </td>
+                    <td style={{ padding: '20px 24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '13px' }}>
+                          <Building2 size={14} color="var(--text-secondary)" /> {task.client}
+                      </div>
+                    </td>
+                    <td style={{ padding: '20px 24px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>{task.category}</span>
+                    </td>
+                    <td style={{ padding: '20px 24px' }}>
+                      <span className={`badge ${getPriorityBadge(task.priority)}`} style={{ fontSize: '10px', fontWeight: '900', padding: '4px 10px', borderRadius: '6px' }}>{task.priority.toUpperCase()}</span>
+                    </td>
+                    <td style={{ padding: '20px 24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                          <Calendar size={14} /> {task.deadline}
+                      </div>
+                    </td>
+                    <td style={{ padding: '20px 24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900', border: '1px solid var(--border-strong)' }}>{(task.assignee || 'U')[0]}</div>
+                          <span style={{ fontSize: '13px', fontWeight: '700' }}>{task.assignee || 'Unassigned'}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '20px 24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getStatusColor(task.status) }} />
+                          <span style={{ fontSize: '13px', fontWeight: '800', color: getStatusColor(task.status) }}>{task.status}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '20px 24px' }}>
+                      <div style={{ position: 'relative' }}>
+                        <button 
+                          className={`hover-action ${activeDropdownId === task.id ? 'active-dot' : ''}`}
+                          style={{ background: 'transparent', padding: '8px', borderRadius: '8px', color: 'var(--text-secondary)' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdownId(activeDropdownId === task.id ? null : task.id);
+                          }}
+                        >
+                          <MoreVertical size={18} />
+                        </button>
+                        <AnimatePresence>
+                          {activeDropdownId === task.id && (
+                            <motion.div 
+                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                              className="dropdown-menu"
+                              style={{ right: 0, top: '100%', marginTop: '8px' }}
+                            >
+                              <div className="dropdown-item"><FileText size={16} /> View Details</div>
+                              <div className="dropdown-item"><Zap size={16} /> Mark Priority</div>
+                              <div className="dropdown-divider"></div>
+                              <div className="dropdown-item" style={{ color: '#ef4444' }}><Trash2 size={16} /> Cancel Task</div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
       )}
 
       <AnimatePresence>
@@ -321,6 +402,57 @@ const Tasks: React.FC = () => {
         .row-hover:hover { background: rgba(0,0,0,0.02); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .hover-action:hover, .active-dot { 
+          color: var(--primary) !important; 
+          background: rgba(99, 102, 241, 0.1) !important; 
+        }
+        .dropdown-menu {
+          position: absolute;
+          background: white;
+          border: 1px solid var(--border-strong);
+          border-radius: 12px;
+          padding: 8px;
+          min-width: 180px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+          z-index: 100;
+        }
+        .dropdown-item {
+          padding: 10px 14px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-primary);
+          transition: 0.2s;
+          cursor: pointer;
+        }
+        .dropdown-item:hover {
+          background: rgba(44, 127, 255, 0.05);
+          color: var(--primary);
+        }
+        .dropdown-divider {
+          height: 1px;
+          background: var(--border-subtle);
+          margin: 6px 0;
+        }
+        .internal-scrollbar::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .internal-scrollbar::-webkit-scrollbar-track {
+          background: var(--background);
+          border-radius: 10px;
+        }
+        .internal-scrollbar::-webkit-scrollbar-thumb {
+          background: var(--border-strong);
+          border-radius: 10px;
+          border: 2px solid var(--background);
+        }
+        .internal-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: var(--secondary);
+        }
       `}</style>
     </div>
   );
