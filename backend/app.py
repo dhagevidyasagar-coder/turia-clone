@@ -616,7 +616,7 @@ def handle_documents():
                 name=filename,
                 client_name=data.get('client_name', 'Unknown'),
                 type=filename.split('.')[-1].upper() if '.' in filename else 'UNKNOWN',
-                size=f"{len(file.read()) / 1024 / 1024:.2f} MB",
+                size=f"{os.path.getsize(file_path) / 1024 / 1024:.2f} MB",
                 category=data.get('category', 'General'),
                 file_path=f"/uploads/{filename}"
             )
