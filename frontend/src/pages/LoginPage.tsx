@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { API_BASE_URL } from '../api';
+
 interface LoginPageProps {
   onLogin: (orgName: string) => void;
 }
@@ -18,19 +20,48 @@ interface LoginPageProps {
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [orgStep, setOrgStep] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     orgName: 'VA CA firm application',
-    firmType: 'Proprietorship'
+    firmType: 'Partnership Firm'
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgStep && !isLogin) {
       setOrgStep(true);
-    } else {
-      onLogin(formData.orgName);
+      return;
+    }
+    
+    setError(null);
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          username: formData.email, 
+          password: formData.password 
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('token', data.access_token);
+        onLogin(formData.orgName);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.msg || 'Invalid credentials');
+      }
+    } catch (err) {
+      console.error('Auth error', err);
+      setError('Connection failed. Please check if the backend is running.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -252,22 +283,42 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             )}
           </AnimatePresence>
 
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              style={{ 
+                background: '#fee2e2', 
+                color: '#b91c1c', 
+                padding: '12px', 
+                borderRadius: '12px', 
+                fontSize: '14px', 
+                fontWeight: '600',
+                textAlign: 'center',
+                border: '1px solid #fecaca'
+              }}
+            >
+              {error}
+            </motion.div>
+          )}
+
           <motion.button 
             type="submit" 
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
+            disabled={loading}
+            whileHover={loading ? {} : { scale: 1.02, y: -2 }}
+            whileTap={loading ? {} : { scale: 0.98 }}
             style={{ 
               marginTop: '12px', padding: '18px', 
-              background: 'linear-gradient(135deg, #4f46e5, #9333ea, #db2777)', 
+              background: loading ? '#94a3b8' : 'linear-gradient(135deg, #4f46e5, #9333ea, #db2777)', 
               color: 'white', 
               fontWeight: '800', fontSize: '16px', letterSpacing: '0.02em', borderRadius: '16px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', 
-              border: 'none', cursor: 'pointer',
-              boxShadow: '0 10px 25px -5px rgba(147, 51, 234, 0.5)'
+              border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+              boxShadow: loading ? 'none' : '0 10px 25px -5px rgba(147, 51, 234, 0.5)'
             }}
           >
-            {orgStep ? 'Launch Workspace' : (isLogin ? 'Authenticate' : 'Create Account')}
-            {orgStep ? <ArrowRight size={20} /> : <Fingerprint size={20} />}
+            {loading ? 'Authenticating...' : (orgStep ? 'Launch Workspace' : (isLogin ? 'Authenticate' : 'Create Account'))}
+            {!loading && (orgStep ? <ArrowRight size={20} /> : <Fingerprint size={20} />)}
           </motion.button>
         </form>
 

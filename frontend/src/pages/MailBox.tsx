@@ -12,6 +12,7 @@ import {
   Forward
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../api';
 
 interface Email {
   id: number;
@@ -41,7 +42,7 @@ const MailBox: React.FC = () => {
 
   const fetchEmails = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/emails');
+      const response = await fetch(`${API_BASE_URL}/emails`);
       const data = await response.json();
       setEmails(data);
     } catch (error) {
@@ -51,7 +52,7 @@ const MailBox: React.FC = () => {
 
   const updateEmailStatus = async (id: number, updates: any) => {
     try {
-      await fetch(`http://127.0.0.1:5005/api/emails/${id}`, {
+      await fetch(`${API_BASE_URL}/emails/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
@@ -132,7 +133,7 @@ const MailBox: React.FC = () => {
     const formData = new FormData(e.target as HTMLFormElement);
 
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/emails', {
+      const response = await fetch(`${API_BASE_URL}/emails`, {
         method: 'POST',
         body: formData
       });

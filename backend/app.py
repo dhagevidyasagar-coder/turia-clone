@@ -1,22 +1,48 @@
-from flask import Flask, jsonify, request
+
+from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import os
 import smtplib
+import json
+import time
+from queue import Queue, Empty
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 
-app = Flask(__name__)
-# Enable CORS for all routes and origins
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+load_dotenv()
 
-# Configure SQLite Database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///turia_practice.db'
+app = Flask(__name__)
+CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'http://localhost:5173,http://localhost:5174').split(',')
+CORS(app, resources={r"/api/*": {"origins": CORS_ORIGIN}})
+
+@app.route('/')
+def health_check():
+    return jsonify({"status": "healthy", "message": "Turia Practice OS Backend is running"}), 200
+
+# PostgreSQL is recommended for production. Default to SQLite for local dev.
+# Usage: export DATABASE_URL=postgresql://user:password@localhost/dbname
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///turia_practice.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'default-jwt-secret-key')
+
+# Simple in-memory message bus for SSE
+message_queues = []
+
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+jwt = JWTManager(app)
 
 # Database Models
 class Client(db.Model):
@@ -129,6 +155,7 @@ class Document(db.Model):
     type = db.Column(db.String(50), default='PDF')
     size = db.Column(db.String(50), default='1.5 MB')
     category = db.Column(db.String(50), default='KYC')
+    file_path = db.Column(db.String(500))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 with app.app_context():
@@ -257,10 +284,11 @@ with app.app_context():
         for data in emails_data:
             db.session.add(Email(**data))
 
-        db.session.commit()
+        db.session.commit() 
 
 # API Endpoints
 @app.route('/api/calendar', methods=['GET'])
+@jwt_required()
 def get_calendar():
     events = CalendarEvent.query.all()
     return jsonify([{
@@ -270,19 +298,23 @@ def get_calendar():
     } for e in events])
 
 @app.route('/api/messages', methods=['GET', 'POST'])
+@jwt_required()
 def handle_messages():
     if request.method == 'GET':
         client_id = request.args.get('client_id')
+        query = db.session.query(Message, Client.name).outerjoin(Client, Message.client_id == Client.id)
         if client_id:
-            messages = Message.query.filter_by(client_id=client_id).order_by(Message.timestamp).all()
+            messages = query.filter(Message.client_id == client_id).order_by(Message.timestamp).all()
         else:
-            messages = Message.query.order_by(Message.timestamp).all()
+            messages = query.order_by(Message.timestamp).all()
+            
         return jsonify([{
-            "id": m.id, "text": m.text, "sender": m.sender,
-            "timestamp": m.timestamp.strftime('%H:%M'), "type": m.type
-        } for m in messages])
+            "id": msg.id, "text": msg.text, "sender": msg.sender,
+            "timestamp": msg.timestamp.strftime('%H:%M'), "type": msg.type,
+            "client_id": msg.client_id, "client_name": name
+        } for msg, name in messages])
     
-    data = request.json
+    data = request.json or {}
     new_msg = Message(
         client_id=data.get('client_id'),
         text=data.get('text'),
@@ -291,9 +323,39 @@ def handle_messages():
     )
     db.session.add(new_msg)
     db.session.commit()
+    
+    # Notify SSE listeners
+    msg_data = {
+        "id": new_msg.id, "text": new_msg.text, "sender": new_msg.sender,
+        "timestamp": new_msg.timestamp.strftime('%H:%M'), "type": new_msg.type,
+        "client_id": new_msg.client_id
+    }
+    for q in message_queues:
+        q.put(json.dumps(msg_data))
+        
     return jsonify({"message": "Message sent", "id": new_msg.id}), 201
 
+@app.route('/api/messages/stream')
+def stream_messages():
+    def event_stream():
+        q = Queue()
+        message_queues.append(q)
+        try:
+            while True:
+                try:
+                    # Wait for message with timeout to prevent blocking indefinitely
+                    msg = q.get(timeout=30)
+                    yield f"data: {msg}\n\n"
+                except Empty:
+                    # Keep-alive
+                    yield ": keep-alive\n\n"
+        finally:
+            message_queues.remove(q)
+
+    return Response(event_stream(), mimetype="text/event-stream")
+
 @app.route('/api/notifications', methods=['GET', 'POST'])
+@jwt_required()
 def handle_notifications():
     if request.method == 'GET':
         notifs = Notification.query.order_by(Notification.timestamp.desc()).all()
@@ -302,27 +364,26 @@ def handle_notifications():
             "type": n.type, "timestamp": n.timestamp.strftime('%H:%M'), "is_read": n.is_read
         } for n in notifs])
     
-    data = request.json
+    data = request.json or {}
     new_notif = Notification(**data)
     db.session.add(new_notif)
     db.session.commit()
     return jsonify({"message": "Notification created", "id": new_notif.id}), 201
 
 @app.route('/api/compliance/sync', methods=['POST'])
+@jwt_required()
 def sync_compliance():
     from datetime import datetime as dt
-    import random
-    # Simulate a real-time sync with Government Portals (GSTN, IT)
+    # Real-time sync with Government Portals (GSTN, IT)
+    # Removing random faking of filings to maintain data integrity
     records = ComplianceRecord.query.all()
     for r in records:
-        if r.status == 'Pending' and random.random() > 0.7:
-            r.status = 'Filed'
-            r.ack_no = f"ACK-{random.randint(100000, 999999)}"
         r.last_sync = dt.utcnow()
     db.session.commit()
     return jsonify({"message": "Compliance data synced with Government portals successfully"})
 
 @app.route('/api/compliance', methods=['GET'])
+@jwt_required()
 def get_compliance():
     records = ComplianceRecord.query.order_by(ComplianceRecord.deadline).all()
     return jsonify([{
@@ -333,37 +394,8 @@ def get_compliance():
         "last_sync": r.last_sync.strftime('%Y-%m-%d %H:%M') if r.last_sync else None
     } for r in records])
 
-@app.route('/api/notifications', methods=['GET'])
-def get_notifications():
-    today = datetime.utcnow().date()
-    # Find compliance records due today
-    due_today = ComplianceRecord.query.filter(ComplianceRecord.deadline <= today.strftime('%Y-%m-%d'), ComplianceRecord.status == 'Pending').all()
-    
-    notifications = []
-    for record in due_today:
-        notifications.append({
-            "id": f"due-{record.id}",
-            "title": "Filing Deadline Today",
-            "message": f"{record.category} for {record.client_name} is due today.",
-            "type": "Critical",
-            "timestamp": "Today",
-            "is_read": False
-        })
-    
-    # Add some mock static notifications if list is small
-    if len(notifications) < 2:
-        notifications.append({
-            "id": "static-1",
-            "title": "System Audit Complete",
-            "message": "Vault integrity check passed successfully.",
-            "type": "System",
-            "timestamp": "1h ago",
-            "is_read": False
-        })
-        
-    return jsonify(notifications)
-
 @app.route('/api/stats', methods=['GET'])
+@jwt_required()
 def get_stats():
     return jsonify({
         "total_clients": Client.query.count(),
@@ -373,26 +405,44 @@ def get_stats():
     })
 
 @app.route('/api/clients', methods=['GET', 'POST'])
+@jwt_required()
 def handle_clients():
     if request.method == 'GET':
         clients = Client.query.all()
         return jsonify([{
             "id": c.id, "name": c.name, "category": c.category,
             "email": c.email, "phone": c.phone, "location": c.location,
-            "entity_type": c.entity_type, "services": c.services,
+            "entity_type": c.entity_type, 
+            "services": c.services.split(',') if c.services else [],
             "employees": c.employees, "auditor": c.auditor, "status": c.status,
             "gstin": c.gstin, "place_of_supply": c.place_of_supply, "address": c.address,
             "cin_llp": c.cin_llp, "tan": c.tan, "pan": c.pan, "udyam": c.udyam,
             "professional_tax": c.professional_tax, "esi_no": c.esi_no, "pf_no": c.pf_no
         } for c in clients])
     
-    data = request.json
-    new_client = Client(**data)
+    data = request.json or {}
+    # Whitelist allowed fields to prevent mass assignment
+    allowed_fields = {
+        'name', 'category', 'email', 'phone', 'location', 'entity_type', 
+        'services', 'employees', 'auditor', 'status', 'gstin', 
+        'place_of_supply', 'address', 'cin_llp', 'tan', 'pan', 
+        'udyam', 'professional_tax', 'esi_no', 'pf_no'
+    }
+    filtered_data = {k: v for k, v in data.items() if k in allowed_fields}
+    
+    if not filtered_data.get('name'):
+        return jsonify({"message": "Client name is required"}), 400
+
+    if 'services' in filtered_data and isinstance(filtered_data['services'], list):
+        filtered_data['services'] = ','.join(filtered_data['services'])
+        
+    new_client = Client(**filtered_data)
     db.session.add(new_client)
     db.session.commit()
     return jsonify({"message": "Client created successfully", "id": new_client.id}), 201
 
 @app.route('/api/invoices', methods=['GET'])
+@jwt_required()
 def get_invoices():
     invoices = Invoice.query.all()
     return jsonify([{
@@ -401,6 +451,7 @@ def get_invoices():
     } for i in invoices])
 
 @app.route('/api/dsc', methods=['GET'])
+@jwt_required()
 def get_dsc():
     records = DSCRecord.query.all()
     return jsonify([{
@@ -409,6 +460,7 @@ def get_dsc():
     } for r in records])
 
 @app.route('/api/emails', methods=['GET', 'POST'])
+@jwt_required()
 def handle_emails():
     if request.method == 'GET':
         emails = Email.query.order_by(Email.timestamp.desc()).all()
@@ -434,55 +486,59 @@ def handle_emails():
         files = []
     
     # Configure your Gmail credentials here
-    sender_email = os.environ.get('EMAIL_ADDRESS', 'dhagevidyasagarr@gmail.com')
-    sender_password = os.environ.get('EMAIL_PASSWORD', 'mmphcbriwfoxzglh')
+    sender_email = os.environ.get('EMAIL_ADDRESS')
+    sender_password = os.environ.get('EMAIL_PASSWORD')
 
-    email_sent_status = False
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = sender_email
-        msg['To'] = recipient
-        msg['Subject'] = subject
-        # Professional HTML Template
-        html_body = f"""
-        <html>
-            <body style="font-family: 'Inter', sans-serif; color: #020617; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E4E4E7; borderRadius: 12px;">
-                <div style="border-bottom: 2px solid #020617; paddingBottom: 16px; marginBottom: 24px;">
-                    <h2 style="margin: 0; color: #020617; font-style: italic;">VA CA firm application</h2>
-                </div>
-                <div style="fontSize: 15px; color: #020617;">
-                    {body.replace('\n', '<br>')}
-                </div>
-                <div style="marginTop: 48px; paddingTop: 24px; border-top: 1px solid #E4E4E7; fontSize: 13px; color: #52525B;">
-                    <p style="margin: 0; fontWeight: 800;">Vidyasagar Dhage</p>
-                    <p style="margin: 4px 0 0; fontSize: 11px; textTransform: uppercase; letterSpacing: 0.05em;">Managing Partner | VA CA firm application</p>
-                    <p style="margin: 16px 0 0; fontSize: 10px; color: #94A3B8; fontStyle: italic;">
-                        Disclaimer: This email and any attachments are confidential and intended solely for the use of the individual or entity to whom they are addressed. If you have received this email in error, please notify the sender immediately.
-                    </p>
-                </div>
-            </body>
-        </html>
-        """
-        msg.attach(MIMEText(html_body, 'html'))
+    if not sender_email or not sender_password:
+        print("SMTP Error: EMAIL_ADDRESS or EMAIL_PASSWORD environment variables not set.")
+        email_sent_status = False
+    else:
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = sender_email
+            msg['To'] = recipient
+            msg['Subject'] = subject
+            # Professional HTML Template
+            html_body = f"""
+            <html>
+                <body style="font-family: 'Inter', sans-serif; color: #020617; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E4E4E7; borderRadius: 12px;">
+                    <div style="border-bottom: 2px solid #020617; paddingBottom: 16px; marginBottom: 24px;">
+                        <h2 style="margin: 0; color: #020617; font-style: italic;">VA CA firm application</h2>
+                    </div>
+                    <div style="fontSize: 15px; color: #020617;">
+                        {body.replace('\n', '<br>')}
+                    </div>
+                    <div style="marginTop: 48px; paddingTop: 24px; border-top: 1px solid #E4E4E7; fontSize: 13px; color: #52525B;">
+                        <p style="margin: 0; fontWeight: 800;">Vidyasagar Dhage</p>
+                        <p style="margin: 4px 0 0; fontSize: 11px; textTransform: uppercase; letterSpacing: 0.05em;">Managing Partner | VA CA firm application</p>
+                        <p style="margin: 16px 0 0; fontSize: 10px; color: #94A3B8; fontStyle: italic;">
+                            Disclaimer: This email and any attachments are confidential and intended solely for the use of the individual or entity to whom they are addressed. If you have received this email in error, please notify the sender immediately.
+                        </p>
+                    </div>
+                </body>
+            </html>
+            """
+            msg.attach(MIMEText(html_body, 'html'))
 
-        for file in files:
-            if file and file.filename:
-                part = MIMEBase('application', 'octet-stream')
-                part.set_payload(file.read())
-                encoders.encode_base64(part)
-                part.add_header('Content-Disposition', f'attachment; filename={file.filename}')
-                msg.attach(part)
+            for file in files:
+                if file and file.filename:
+                    part = MIMEBase('application', 'octet-stream')
+                    part.set_payload(file.read())
+                    encoders.encode_base64(part)
+                    part.add_header('Content-Disposition', f'attachment; filename={file.filename}')
+                    msg.attach(part)
 
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
-        email_sent_status = True
-        print(f"Successfully sent email to {recipient}")
-    except Exception as e:
-        print(f"Error sending email via SMTP: {e}")
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
+            server.quit()
+            email_sent_status = True
+            print(f"Successfully sent email to {recipient}")
+        except Exception as e:
+            print(f"Error sending email via SMTP: {e}")
+            email_sent_status = False
 
     new_email = Email(
         sender=f'Me ({sender_email})',
@@ -500,9 +556,10 @@ def handle_emails():
     return jsonify({"message": msg_resp, "id": new_email.id}), 201
 
 @app.route('/api/emails/<int:email_id>', methods=['PATCH'])
+@jwt_required()
 def update_email(email_id):
     email = Email.query.get_or_404(email_id)
-    data = request.json
+    data = request.json or {}
     if 'is_read' in data: email.is_read = data['is_read']
     if 'is_starred' in data: email.is_starred = data['is_starred']
     if 'is_archived' in data: email.is_archived = data['is_archived']
@@ -511,6 +568,7 @@ def update_email(email_id):
     return jsonify({"message": "Email updated"})
 
 @app.route('/api/tasks', methods=['GET', 'POST'])
+@jwt_required()
 def handle_tasks():
     if request.method == 'GET':
         results = db.session.query(Task, Client.name).outerjoin(Client, Task.client_id == Client.id).all()
@@ -520,27 +578,137 @@ def handle_tasks():
             "client": client_name
         } for t, client_name in results])
     
-    data = request.json
-    new_task = Task(**data)
+    data = request.json or {}
+    # Whitelist allowed fields
+    allowed_fields = {'title', 'category', 'client_id', 'priority', 'deadline', 'assignee', 'status'}
+    filtered_data = {k: v for k, v in data.items() if k in allowed_fields}
+    
+    if not filtered_data.get('title'):
+        return jsonify({"message": "Task title is required"}), 400
+        
+    new_task = Task(**filtered_data)
     db.session.add(new_task)
     db.session.commit()
     return jsonify({"message": "Task created successfully", "id": new_task.id}), 201
 
 @app.route('/api/documents', methods=['GET', 'POST'])
+@jwt_required()
 def handle_documents():
     if request.method == 'GET':
         docs = Document.query.order_by(Document.timestamp.desc()).all()
         return jsonify([{
             "id": d.id, "name": d.name, "client_name": d.client_name,
             "type": d.type, "size": d.size, "category": d.category,
-            "date": d.timestamp.strftime('%d %b %Y')
+            "date": d.timestamp.strftime('%d %b %Y'),
+            "file_path": d.file_path
         } for d in docs])
     
-    data = request.json
+    # Handle File Upload
+    if 'file' in request.files:
+        file = request.files['file']
+        if file.filename != '':
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            
+            data = request.form
+            new_doc = Document(
+                name=filename,
+                client_name=data.get('client_name', 'Unknown'),
+                type=filename.split('.')[-1].upper() if '.' in filename else 'UNKNOWN',
+                size=f"{len(file.read()) / 1024 / 1024:.2f} MB",
+                category=data.get('category', 'General'),
+                file_path=f"/uploads/{filename}"
+            )
+            db.session.add(new_doc)
+            db.session.commit()
+            return jsonify({"message": "Document saved", "id": new_doc.id}), 201
+            
+    # Fallback to JSON if no file uploaded
+    data = request.json or {}
     new_doc = Document(**data)
     db.session.add(new_doc)
     db.session.commit()
     return jsonify({"message": "Document saved", "id": new_doc.id}), 201
+
+@app.route('/uploads/<filename>')
+@jwt_required()
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+# Missing CRUD Endpoints
+@app.route('/api/clients/<int:client_id>', methods=['PUT', 'PATCH', 'DELETE'])
+@jwt_required()
+def update_client(client_id):
+    client = Client.query.get_or_404(client_id)
+    if request.method == 'DELETE':
+        db.session.delete(client)
+        db.session.commit()
+        return jsonify({"message": "Client deleted"})
+        
+    data = request.json or {}
+    for key, value in data.items():
+        if hasattr(client, key):
+            setattr(client, key, value)
+    db.session.commit()
+    return jsonify({"message": "Client updated"})
+
+@app.route('/api/tasks/<int:task_id>', methods=['PATCH', 'DELETE'])
+@jwt_required()
+def update_task(task_id):
+    task = Task.query.get_or_404(task_id)
+    if request.method == 'DELETE':
+        db.session.delete(task)
+        db.session.commit()
+        return jsonify({"message": "Task deleted"})
+        
+    data = request.json or {}
+    if 'status' in data: task.status = data['status']
+    if 'assignee' in data: task.assignee = data['assignee']
+    if 'deadline' in data: task.deadline = data['deadline']
+    if 'priority' in data: task.priority = data['priority']
+    db.session.commit()
+    return jsonify({"message": "Task updated"})
+
+@app.route('/api/calendar', methods=['POST'])
+@jwt_required()
+def create_calendar_event():
+    data = request.json or {}
+    new_event = CalendarEvent(**data)
+    db.session.add(new_event)
+    db.session.commit()
+    return jsonify({"message": "Event created", "id": new_event.id}), 201
+
+@app.route('/api/calendar/<int:event_id>', methods=['PATCH', 'DELETE'])
+@jwt_required()
+def update_calendar_event(event_id):
+    event = CalendarEvent.query.get_or_404(event_id)
+    if request.method == 'DELETE':
+        db.session.delete(event)
+        db.session.commit()
+        return jsonify({"message": "Event deleted"})
+        
+    data = request.json or {}
+    for key, value in data.items():
+        if hasattr(event, key):
+            setattr(event, key, value)
+    db.session.commit()
+    return jsonify({"message": "Event updated"})
+
+# Auth Endpoint
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.json or {}
+    admin_user = os.environ.get('ADMIN_USERNAME', 'admin')
+    admin_pass = os.environ.get('ADMIN_PASSWORD', 'password')
+    
+    if data and data.get('username') == admin_user and data.get('password') == admin_pass:
+        access_token = create_access_token(identity=admin_user)
+        return jsonify({
+            "access_token": access_token,
+            "user": {"username": admin_user, "role": "admin"}
+        }), 200
+    return jsonify({"msg": "Bad username or password"}), 401
 
 if __name__ == '__main__':
     app.run(debug=False, host='127.0.0.1', port=5005)

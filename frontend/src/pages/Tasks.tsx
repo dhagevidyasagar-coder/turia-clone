@@ -25,6 +25,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../api';
 
 interface Task {
   id: number;
@@ -44,20 +45,42 @@ const Tasks: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [clients, setClients] = useState<{id: number, name: string}[]>([]);
+
+  const [formData, setFormData] = useState({
+    title: '',
+    client_id: '',
+    category: 'GST',
+    assignee: '',
+    deadline: '',
+    priority: 'Medium'
+  });
 
   const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchTasks();
+    fetchClients();
     // Close dropdown on click outside
     const handleClickOutside = () => setActiveDropdownId(null);
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
+  const fetchClients = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clients`);
+      const data = await response.json();
+      setClients(data.map((c: any) => ({ id: c.id, name: c.name })));
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+    }
+  };
+
   const fetchTasks = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/tasks');
+      const response = await fetch(`${API_BASE_URL}/tasks`);
       const data = await response.json();
       setTasks(data);
       setLoading(false);
@@ -65,6 +88,57 @@ const Tasks: React.FC = () => {
       console.error('Error fetching tasks:', error);
       setLoading(false);
     }
+  };
+
+  const handleModalClose = () => {
+    const isDirty = formData.title !== '' || formData.assignee !== '' || formData.deadline !== '';
+    if (isDirty) {
+      if (window.confirm('Discard unsaved task data?')) {
+        setShowAddModal(false);
+        resetForm();
+      }
+    } else {
+      setShowAddModal(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+        title: '',
+        client_id: '',
+        category: 'GST',
+        assignee: '',
+        deadline: '',
+        priority: 'Medium'
+    });
+  };
+
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.title || !formData.client_id) return;
+    
+    setIsSaving(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      if (response.ok) {
+        setShowAddModal(false);
+        resetForm();
+        fetchTasks();
+      }
+    } catch (error) {
+      console.error('Error adding task:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const categories = ['All', 'GST', 'MCA', 'TDS', 'Income Tax', 'Audit', 'Payroll'];
@@ -342,29 +416,27 @@ const Tasks: React.FC = () => {
                         <h2 className="display-serif" style={{ fontSize: '28px', fontStyle: 'italic' }}>Provision Workflow</h2>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>New Statutory Deliverable</p>
                     </div>
-                    <button onClick={() => setShowAddModal(false)} style={{ background: 'var(--background)', padding: '10px', borderRadius: '12px' }}><X size={20} /></button>
+                    <button onClick={handleModalClose} style={{ background: 'var(--background)', padding: '10px', borderRadius: '12px' }}><X size={20} /></button>
                 </div>
 
-                <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <form onSubmit={handleAddTask} style={{ padding: '40px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Task Title / Description</label>
-                        <input placeholder="e.g. GSTR-3B Monthly Review" style={{ width: '100%', background: 'var(--background)' }} />
+                        <input name="title" value={formData.title} onChange={handleInputChange} placeholder="e.g. GSTR-3B Monthly Review" style={{ width: '100%', background: 'var(--background)' }} required />
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Associate Client</label>
-                            <select style={{ width: '100%', background: 'var(--background)' }}>
-                                <option>Reliance Industries</option>
-                                <option>Zomato Operations</option>
-                                <option>Tata Consultancy</option>
-                                <option>Infosys Ltd</option>
+                            <select name="client_id" value={formData.client_id} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }} required>
+                                <option value="">Select Client</option>
+                                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Statutory Category</label>
-                            <select style={{ width: '100%', background: 'var(--background)' }}>
-                                {categories.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
+                            <select name="category" value={formData.category} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }}>
+                                {categories.filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
                     </div>
@@ -372,11 +444,11 @@ const Tasks: React.FC = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Staff Assignee</label>
-                            <input placeholder="Staff member name..." style={{ width: '100%', background: 'var(--background)' }} />
+                            <input name="assignee" value={formData.assignee} onChange={handleInputChange} placeholder="Staff member name..." style={{ width: '100%', background: 'var(--background)' }} />
                         </div>
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Filing Deadline</label>
-                            <input type="date" style={{ width: '100%', background: 'var(--background)' }} />
+                            <input name="deadline" value={formData.deadline} onChange={handleInputChange} type="date" style={{ width: '100%', background: 'var(--background)' }} />
                         </div>
                     </div>
 
@@ -386,12 +458,12 @@ const Tasks: React.FC = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
-                        <button onClick={() => setShowAddModal(false)} style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-strong)', padding: '16px', borderRadius: '12px', fontWeight: '700' }}>Discard</button>
-                        <button className="premium-btn" style={{ flex: 2, justifyContent: 'center' }}>
-                            <ShieldCheck size={20} /> Deploy to Workflow
+                        <button type="button" onClick={handleModalClose} style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-strong)', padding: '16px', borderRadius: '12px', fontWeight: '700' }}>Discard</button>
+                        <button type="submit" disabled={isSaving} className="premium-btn" style={{ flex: 2, justifyContent: 'center' }}>
+                            <ShieldCheck size={20} /> {isSaving ? 'Provisioning...' : 'Deploy to Workflow'}
                         </button>
                     </div>
-                </div>
+                </form>
             </motion.div>
           </div>
         )}

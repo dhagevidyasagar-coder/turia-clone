@@ -1,0 +1,7 @@
+{
+    "python.defaultInterpreterPath": "/Users/dhagevidyasagar/Desktop/turia-clone/backend/venv/bin/python",
+    "python.interpreterPath": "/Users/dhagevidyasagar/Desktop/turia-clone/backend/venv/bin/python",
+    "python.analysis.extraPaths": [
+        "/Users/dhagevidyasagar/Desktop/turia-clone/backend"
+    ]
+}

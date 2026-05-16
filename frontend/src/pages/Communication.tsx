@@ -12,6 +12,7 @@ import {
   Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../api';
 
 interface Chat {
   id: number;
@@ -47,9 +48,31 @@ const Communication: React.FC = () => {
   useEffect(() => {
     if (selectedChat) {
       fetchMessages();
-      const interval = setInterval(fetchMessages, 5000); // Poll for new messages
-      return () => clearInterval(interval);
     }
+    
+    const eventSource = new EventSource(`${API_BASE_URL}/messages/stream`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const newMessage = JSON.parse(event.data);
+        // Only append if it belongs to the selected chat and is NOT from me (to avoid duplicates since I fetch after sending)
+        // Or better yet, just re-fetch messages to ensure order and state
+        if (selectedChat?.id === newMessage.client_id) {
+          fetchMessages();
+        }
+      } catch (err) {
+        console.error('SSE Error parsing data:', err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('EventSource failed:', err);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [selectedChat?.id]);
 
   useEffect(() => {
@@ -62,7 +85,7 @@ const Communication: React.FC = () => {
 
   const fetchInitialData = async () => {
     try {
-      const clientRes = await fetch('http://127.0.0.1:5005/api/clients');
+      const clientRes = await fetch(`${API_BASE_URL}/clients`);
       const clients = await clientRes.json();
       
       const formattedChats: Chat[] = clients.map((c: any) => ({
@@ -90,7 +113,7 @@ const Communication: React.FC = () => {
   const fetchMessages = async () => {
     if (!selectedChat) return;
     try {
-      const response = await fetch(`http://127.0.0.1:5005/api/messages?client_id=${selectedChat.id}`);
+      const response = await fetch(`${API_BASE_URL}/messages?client_id=${selectedChat.id}`);
       const data = await response.json();
       
       const formattedMsgs: Message[] = data.map((m: any) => ({
@@ -130,7 +153,7 @@ const Communication: React.FC = () => {
     };
 
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/messages', {
+      const response = await fetch(`${API_BASE_URL}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(msgData)

@@ -19,6 +19,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../api';
 
 interface Client {
   id: number;
@@ -68,10 +69,10 @@ const Clients: React.FC = () => {
     email: 'contact@client.com',
     phone: '',
     entity_type: 'Private Ltd',
-    services: 'Tax, Compliance',
+    services: ['Tax', 'Compliance'],
     auditor: 'Vidyasagar D.',
     status: 'Active',
-    employees: 0
+    employees: 10
   });
 
   const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
@@ -87,7 +88,7 @@ const Clients: React.FC = () => {
 
   const fetchClients = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/clients');
+      const response = await fetch(`${API_BASE_URL}/clients`);
       const data = await response.json();
       setClients(data);
       setLoading(false);
@@ -113,7 +114,7 @@ const Clients: React.FC = () => {
   const handleFinalize = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/clients', {
+      const response = await fetch(`${API_BASE_URL}/clients`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -126,8 +127,8 @@ const Clients: React.FC = () => {
             name: '', gstin: '', place_of_supply: 'Maharashtra (27)', address: '',
             pan: '', tan: '', cin_llp: '', udyam: '', professional_tax: '', pf_no: '',
             category: 'Silver', email: 'contact@client.com', phone: '',
-            entity_type: 'Private Ltd', services: 'Tax, Compliance', auditor: 'Vidyasagar D.',
-            status: 'Active', employees: 0
+            entity_type: 'Private Ltd', services: ['Tax', 'Compliance'], auditor: 'Vidyasagar D.',
+            status: 'Active', employees: 10
         });
       }
     } catch (error) {
@@ -162,7 +163,7 @@ const Clients: React.FC = () => {
         padding: '0 8px'
       }}>
         <div>
-          <h1 style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-1px', marginBottom: '8px' }}>
+          <h1 className="display-serif" style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-1px', marginBottom: '8px', margin: 0, lineHeight: 1.2 }}>
             Client Management
           </h1>
 
@@ -326,7 +327,7 @@ const Clients: React.FC = () => {
                   </td>
                   <td style={{ padding: '20px 24px' }}>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {(Array.isArray(client.services) ? client.services : (client.services as any)?.split(',') || []).slice(0, 2).map((s: string, i: number) => (
+                      {client.services.slice(0, 2).map((s: string, i: number) => (
                         <span key={i} style={{ 
                           padding: '4px 10px', 
                           borderRadius: '8px', 
@@ -547,6 +548,28 @@ const Clients: React.FC = () => {
                         <option>Sarah J.</option>
                         <option>Mehul S.</option>
                       </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Entity Category</label>
+                      <select name="category" value={formData.category} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }}>
+                        <option value="Gold">Gold (Priority)</option>
+                        <option value="Silver">Silver (Standard)</option>
+                        <option value="Bronze">Bronze (Basic)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Employee Count</label>
+                      <input type="number" name="employees" value={formData.employees} onChange={handleInputChange} style={{ width: '100%', background: 'var(--background)' }} />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)' }}>Opted Services (Comma separated)</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. GST, TDS, Audit, Payroll" 
+                        value={Array.isArray(formData.services) ? formData.services.join(', ') : formData.services} 
+                        onChange={(e) => setFormData({...formData, services: e.target.value.split(',').map(s => s.trim())})}
+                        style={{ width: '100%', background: 'var(--background)' }} 
+                      />
                     </div>
                   </div>
                 )}

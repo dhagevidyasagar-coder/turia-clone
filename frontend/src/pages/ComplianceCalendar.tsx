@@ -16,6 +16,7 @@ import {
   List
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../api';
 
 interface Deadline {
   day: number;
@@ -45,17 +46,21 @@ const ComplianceCalendar: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 21)); // April 21, 2026
   const [selectedDay, setSelectedDay] = useState<number | null>(21);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
     fetchCompliance();
   }, []);
 
   const fetchCompliance = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/compliance');
+      const response = await fetch(`${API_BASE_URL}/compliance`);
+      if (!response.ok) throw new Error('Failed to fetch compliance data');
       const data = await response.json();
       
-      // Transform backend records to front-end Deadline interface
       const transformed: Deadline[] = data.map((r: any) => ({
         day: parseInt(r.deadline.split('-')[2]),
         dateStr: `${r.deadline.split('-')[2]}th ${new Date(r.deadline).toLocaleString('default', { month: 'short' })}`,
@@ -69,7 +74,10 @@ const ComplianceCalendar: React.FC = () => {
       setDeadlines(transformed.length > 0 ? transformed : statutoryDeadlines);
     } catch (error) {
       console.error('Error fetching compliance:', error);
+      setError('Government portal sync failed. Displaying local cache.');
       setDeadlines(statutoryDeadlines);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -152,6 +160,13 @@ const ComplianceCalendar: React.FC = () => {
                         <button style={{ padding: '6px', background: 'var(--background)', border: '1px solid var(--border-strong)', borderRadius: '6px' }}><ChevronRight size={16} /></button>
                     </div>
                 </div>
+                {error && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--danger)', fontSize: '12px', fontWeight: '800' }}>
+                    <AlertCircle size={16} />
+                    {error}
+                    <button onClick={fetchCompliance} style={{ background: 'var(--danger)15', border: 'none', padding: '4px 12px', borderRadius: '6px', color: 'var(--danger)', cursor: 'pointer' }}>Retry Sync</button>
+                  </div>
+                )}
                 <div style={{ display: 'flex', background: 'var(--background)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-strong)' }}>
                     <button 
                         style={{ padding: '8px 16px', background: 'white', borderRadius: '6px', color: 'var(--brand-blue)', boxShadow: 'var(--shadow-sm)', fontWeight: '800', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}

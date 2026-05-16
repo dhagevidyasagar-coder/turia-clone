@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
   Users, 
@@ -102,7 +103,21 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
               
               <AnimatePresence>
                 {item.subItems && isActive(item.id) && (
-                  <ul style={{ listStyle: 'none', paddingLeft: '44px', marginTop: '4px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <motion.ul 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    style={{ 
+                        listStyle: 'none', 
+                        paddingLeft: '44px', 
+                        marginTop: '4px', 
+                        marginBottom: '8px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '2px',
+                        overflow: 'hidden'
+                    }}
+                  >
                     {item.subItems.map(sub => {
                         const subId = `${item.id}:${sub.toLowerCase().replace(' ', '_')}`;
                         const isSubActive = activeTab === subId;
@@ -128,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                             </li>
                         );
                     })}
-                  </ul>
+                  </motion.ul>
                 )}
               </AnimatePresence>
             </li>
@@ -166,6 +181,5 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   );
 };
 
-const AnimatePresence: React.FC<{children: React.ReactNode}> = ({children}) => <>{children}</>;
-
 export default Sidebar;
+

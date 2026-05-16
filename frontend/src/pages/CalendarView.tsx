@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../api';
 
 interface CalendarEvent {
   id: number;
@@ -44,7 +45,7 @@ const CalendarView: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/calendar');
+      const response = await fetch(`${API_BASE_URL}/calendar`);
       const data = await response.json();
       setEvents(data);
       setLoading(false);

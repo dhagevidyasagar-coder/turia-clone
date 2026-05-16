@@ -19,6 +19,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../api';
 
 interface ComplianceRecord {
   id: number;
@@ -58,7 +59,7 @@ const Compliance: React.FC = () => {
 
   const fetchCompliance = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/compliance');
+      const response = await fetch(`${API_BASE_URL}/compliance`);
       const data = await response.json();
       setRecords(data);
       setLoading(false);
@@ -71,7 +72,7 @@ const Compliance: React.FC = () => {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      await fetch('http://127.0.0.1:5005/api/compliance/sync', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/compliance/sync`, { method: 'POST' });
       await fetchCompliance();
     } catch (error) {
       console.error('Sync failed:', error);

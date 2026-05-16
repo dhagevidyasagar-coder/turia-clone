@@ -8,3 +8,6 @@ turia_practice.db
 venv/
 __pycache__/
 *.pyc
+
+# Ignore nested repositories
+lps_system/

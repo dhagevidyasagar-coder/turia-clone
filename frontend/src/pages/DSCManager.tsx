@@ -18,6 +18,7 @@ import {
   Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../api';
 
 interface DSC {
   id: number;
@@ -40,7 +41,7 @@ const DSCManager: React.FC = () => {
 
   const fetchDSC = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/dsc');
+      const response = await fetch(`${API_BASE_URL}/dsc`);
       const data = await response.json();
       setDscs(data);
       setLoading(false);

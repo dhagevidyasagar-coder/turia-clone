@@ -22,6 +22,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../api';
 
 interface Document {
   id: number;
@@ -50,7 +51,7 @@ const Documents: React.FC = () => {
 
   const fetchDocs = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/documents');
+      const response = await fetch(`${API_BASE_URL}/documents`);
       const data = await response.json();
       setDocs(data);
       setLoading(false);
@@ -79,7 +80,7 @@ const Documents: React.FC = () => {
         };
 
         try {
-            await fetch('http://127.0.0.1:5005/api/documents', {
+            await fetch(`${API_BASE_URL}/documents`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(docData)
@@ -112,7 +113,7 @@ const Documents: React.FC = () => {
     };
 
     try {
-        await fetch('http://127.0.0.1:5005/api/documents', {
+        await fetch(`${API_BASE_URL}/documents`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(docData)
@@ -125,7 +126,7 @@ const Documents: React.FC = () => {
 
   const showClientInfo = async (clientName: string) => {
     try {
-      const response = await fetch('http://127.0.0.1:5005/api/clients');
+      const response = await fetch(`${API_BASE_URL}/clients`);
       const clients = await response.json();
       const client = clients.find((c: any) => c.name === clientName);
       if (client) {
