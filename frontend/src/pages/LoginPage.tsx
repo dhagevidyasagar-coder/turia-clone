@@ -169,11 +169,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
               >
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email Address</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Username</label>
                   <div className="group" style={{ position: 'relative' }}>
                     <Mail size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', transition: 'color 0.2s' }} />
                     <input 
-                      type="email" required placeholder="name@firm.com" 
+                      type="text" required placeholder="admin" 
                       value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
                       style={{ 
                         width: '100%', padding: '16px 16px 16px 48px', 
